@@ -1,0 +1,81 @@
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  margin: 0;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: #1d4ed8;
+  color: white;
+}
+
+.topbar .brand {
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.topbar nav a {
+  color: white;
+  text-decoration: none;
+  margin-left: 1.2rem;
+}
+
+.topbar nav a:hover { text-decoration: underline; }
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.data-table th, .data-table td {
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.data-table th { background: #f0f0f0; }
+
+.data-table tr.cheapest td {
+  background: #ecfdf5;
+  font-weight: 600;
+}
+
+.error { color: #b00020; }
+
+button {
+  background: #1d4ed8;
+  color: white;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+input {
+  padding: 0.3rem;
+  margin: 0.2rem 0;
+}
+
+.search-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+a { color: #1d4ed8; }

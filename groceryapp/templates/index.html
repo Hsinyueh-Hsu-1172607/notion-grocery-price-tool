@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Grocery Price Tool{% endblock %}
+{% block content %}
+  <h1>雜貨價格比較工具</h1>
+  <p>掃描超市收據,自動把每個品項的價格記錄到你的 Notion 資料庫,
+     之後就能查詢同一樣東西在不同店家、不同時間買過多少錢。</p>
+  <p>
+    <a href="{{ url_for('upload') }}">📷 掃描一張收據</a><br>
+    <a href="{{ url_for('compare') }}">🔍 查詢比價</a><br>
+    <a href="{{ notion_url }}" target="_blank" rel="noopener">🗂 在 Notion 開啟資料庫</a>
+  </p>
+{% endblock %}
