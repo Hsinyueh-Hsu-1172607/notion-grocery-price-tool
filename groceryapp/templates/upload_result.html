@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}辨識結果 - Grocery Price Tool{% endblock %}
+{% block title %}Logged to Notion - Grocery Price Tool{% endblock %}
 {% block content %}
-  <h1>已寫入 Notion</h1>
+  <h1>Logged to Notion</h1>
   <p>
-    店家:{{ store_name or "—" }} ／ 日期:{{ purchase_date or "—" }} ／
-    新增了 <strong>{{ count }}</strong> 個品項
+    Store: {{ store_name or "—" }} / Date: {{ purchase_date or "—" }} /
+    added <strong>{{ count }}</strong> item(s)
   </p>
 
   <table class="data-table">
-    <thead><tr><th>品名</th><th>分類</th><th>數量</th><th>單價</th></tr></thead>
+    <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Unit Price</th></tr></thead>
     <tbody>
       {% for item in items %}
         <tr>
@@ -22,7 +22,7 @@
   </table>
 
   <p>
-    <a href="{{ notion_url }}" target="_blank" rel="noopener">🗂 在 Notion 開啟,確認或修正這幾筆資料</a><br>
-    <a href="{{ url_for('upload') }}">📷 再掃一張</a>
+    <a href="{{ notion_url }}" target="_blank" rel="noopener">🗂 Open in Notion to review or fix these entries</a><br>
+    <a href="{{ url_for('upload') }}">📷 Scan another receipt</a>
   </p>
 {% endblock %}

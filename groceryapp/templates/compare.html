@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}比價查詢 - Grocery Price Tool{% endblock %}
+{% block title %}Compare Prices - Grocery Price Tool{% endblock %}
 {% block content %}
-  <h1>查詢品項的比價</h1>
-  <p>輸入品項名稱,結果依單價由低到高排序——最便宜的店家會排在最前面。</p>
+  <h1>Compare Prices for an Item</h1>
+  <p>Enter an item name — results are sorted by unit price, cheapest first.</p>
 
   <form method="get" class="search-form">
-    <input type="text" name="q" placeholder="例如:牛奶、雞蛋…" value="{{ query }}">
-    <button type="submit">搜尋</button>
+    <input type="text" name="q" placeholder="e.g. milk, eggs…" value="{{ query }}">
+    <button type="submit">Search</button>
   </form>
 
   {% if query %}
     {% if results %}
       <table class="data-table">
         <thead>
-          <tr><th>品名</th><th>店家</th><th>單價</th><th>日期</th><th>分類</th></tr>
+          <tr><th>Item</th><th>Store</th><th>Unit Price</th><th>Date</th><th>Category</th></tr>
         </thead>
         <tbody>
           {% for row in results %}
@@ -28,7 +28,7 @@
         </tbody>
       </table>
     {% else %}
-      <p>在 Notion 資料庫裡找不到符合「{{ query }}」的紀錄。</p>
+      <p>No records in Notion matching "{{ query }}".</p>
     {% endif %}
   {% endif %}
 {% endblock %}

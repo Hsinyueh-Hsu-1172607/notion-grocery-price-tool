@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}掃描收據 - Grocery Price Tool{% endblock %}
+{% block title %}Scan Receipt - Grocery Price Tool{% endblock %}
 {% block content %}
-  <h1>掃描收據</h1>
-  <p>用手機瀏覽器開啟這個頁面會直接叫出相機;電腦則會跳出檔案選擇視窗。
-     辨識結果會直接寫進你的 Notion 資料庫——辨識有錯的話,之後直接在
-     Notion 裡修正就好。</p>
+  <h1>Scan a Receipt</h1>
+  <p>Opening this page on your phone's browser will open the camera directly;
+     on a computer it opens a file picker. Results are written straight to
+     your Notion database — if anything's misread, just fix it there.</p>
 
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
   <form method="post" enctype="multipart/form-data" id="upload-form">
     <input type="file" name="photo" accept="image/*" capture="environment" required>
-    <button type="submit">辨識並寫入 Notion</button>
+    <button type="submit">Scan &amp; Log to Notion</button>
   </form>
-  <p id="processing" hidden>辨識中,請稍候…</p>
+  <p id="processing" hidden>Reading the receipt, please wait…</p>
 
   <script>
     document.getElementById("upload-form").addEventListener("submit", function () {

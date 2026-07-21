@@ -31,7 +31,7 @@ def upload():
     if not photo or photo.filename == "" or not _allowed(photo.filename):
         return render_template(
             "upload.html",
-            error="請選擇一張 jpg/png/webp 格式的收據照片。",
+            error="Please choose a jpg/png/webp receipt photo.",
         )
 
     ext = photo.filename.rsplit(".", 1)[-1].lower()
@@ -47,7 +47,7 @@ def upload():
     if parsed is None or not parsed.get("items"):
         return render_template(
             "upload.html",
-            error="辨識不出這張收據的內容,請重新拍一張更清楚、光線更好的照片。",
+            error="Couldn't read anything from this receipt. Try a clearer, better-lit photo.",
         )
 
     count = notion_sync.add_purchase_items(
