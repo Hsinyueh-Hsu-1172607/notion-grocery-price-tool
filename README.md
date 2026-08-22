@@ -4,12 +4,13 @@ A small Flask app that scans a NZ supermarket receipt and logs every item's
 price straight into a Notion database, so you can later look up which store
 had the cheapest price for something you buy regularly.
 
-Take a photo on your phone (or upload one from your computer). Tesseract OCR
-reads the text off the receipt locally, a set of parsing rules pulls out the
-store, date, line items and prices, and each item becomes a new row in a
-Notion database via the [Notion API](https://developers.notion.com/). Notion
-itself is the only datastore and the only place you review/correct results —
-there's no separate web dashboard to maintain.
+Take a photo on your phone (or upload one from your computer). OCR reads the
+text off the receipt locally, layout-aware parsing pulls out the store, date,
+line items and prices, and each item becomes a new row in a Notion database
+via the [Notion API](https://developers.notion.com/). Notion itself is the
+only datastore and the only place you review/correct results — there's no
+separate web dashboard to maintain. Everything runs on your own machine, with
+no OCR API keys and no per-scan cost.
 
 ## Why build this this way?
 
@@ -23,11 +24,53 @@ either through this app's `/compare` route or directly in Notion. It also
 means there's no in-app edit screen: if OCR misreads something, you fix it
 straight in Notion, since that's already a very good spreadsheet-like editor.
 
-The OCR/parsing step (`groceryapp/ocr.py`) is copied from the receipt-tracker
-project unchanged — regex over Tesseract's raw text output, plus a keyword
-dictionary to guess a spending category. It's free (no API key, runs
-locally) but meaningfully less accurate than handing the photo to a
-vision-capable LLM, so expect to correct results in Notion from time to time.
+## How the OCR works
+
+`groceryapp/ocr.py` (shared with the receipt-tracker project) picks between
+two engines, both free and fully local:
+
+1. **macOS Vision** — the framework behind Live Text. Used when available.
+2. **Tesseract** — the fallback, so the project still runs off a Mac.
+
+The gap between them is not small. On a real phone photo of a curved
+thermal receipt, Tesseract read the item names but **not a single price**;
+Vision read every price at full confidence:
+
+| | Tesseract | macOS Vision |
+|---|---|---|
+| `BROCCOLI 2 FOR` | name only | ✅ with `$3.00` |
+| `0.840 kg @ $8.99/kg` | `0.840 Kg &` | ✅ complete |
+| `$7.55`, `$1.55`, `$12.10`, `$1.58` | ❌ none found | ✅ all, confidence 1.00 |
+| `TOTAL` | read as `TO: LAL` | ✅ with `$12.10` |
+
+Preprocessing didn't close that gap — greyscale, upscaling, contrast
+stretching, sharpening, and binarisation all made Tesseract's output *worse*
+on this image, not better.
+
+**Parsing works off layout, not string shape.** Both engines return text
+along with where it sits on the page, so the parser groups text into visual
+rows by vertical position, then reads the rightmost price-shaped run in each
+row as the amount and whatever is to its left as the item. This handles the
+two-line format NZ produce shops use, where the item name is on one line and
+its weight and price land on the next:
+
+```
+Kiwifruit Gold
+    0.840 kg @ $8.99/kg          $7.55
+```
+
+Two details that cost real debugging time, both worth knowing about:
+
+- Phone photos carry an **EXIF orientation** tag, and neither engine applies
+  it for you. Left uncorrected, Tesseract reads sideways text (and returns
+  nothing usable) while Vision returns coordinates with the axes effectively
+  swapped, which silently collapses every row together.
+- OCR can split a number across a space (`$8. 99`), so numeric parsing has to
+  tolerate that rather than stopping at the first space.
+
+Category assignment is still just a keyword dictionary (`"milk"` → Dairy &
+Eggs), with no real language understanding behind it, so unusual products
+land in `Other` and are worth correcting in Notion.
 
 ## Features
 
@@ -40,8 +83,10 @@ vision-capable LLM, so expect to correct results in Notion from time to time.
 
 ## Getting this running
 
-1. **Install Tesseract** (the OCR engine — `pytesseract` is just a Python
-   wrapper around it)
+1. **Install Tesseract** — the fallback OCR engine. On macOS this is optional
+   (Vision is built into the OS and will be used instead), but installing it
+   means the app still works if Vision ever fails on an image. Off macOS it's
+   required.
 
    ```bash
    brew install tesseract
@@ -91,15 +136,17 @@ vision-capable LLM, so expect to correct results in Notion from time to time.
    ```
 
    Visit `http://127.0.0.1:5000`. To scan from your phone, both devices need
-   to be on the same network — visit your computer's LAN IP instead of
-   `127.0.0.1` (or run `app.run(host="0.0.0.0")` in `run.py`).
+   to be on the same Wi-Fi network — `127.0.0.1` means "this machine", so from
+   the phone you visit the computer's LAN IP instead (`ipconfig getifaddr en0`
+   on macOS). The dev server already binds to `0.0.0.0` so it accepts those
+   connections.
 
 ## Project structure
 
 ```
 groceryapp/
 ├── __init__.py     # creates the Flask app, loads .env
-├── ocr.py           # Tesseract OCR + regex/keyword parsing (shared with receipt-tracker)
+├── ocr.py           # Vision/Tesseract OCR + layout-aware parsing (shared with receipt-tracker)
 ├── notion_sync.py    # writes scanned items to Notion, queries them back for comparison
 ├── routes.py          # / , /upload , /compare
 ├── templates/
@@ -113,6 +160,7 @@ setup_notion.py     # one-off: creates the Notion database, prints its ID
   Notion.
 - No receipt photos are kept — the uploaded image is OCR'd from a temp file
   and deleted immediately after.
-- No LLM-based extraction — see `receipt-tracker` for that trade-off explored
-  the other way (Claude vision API instead of Tesseract, at a small
-  per-request cost).
+- No LLM-based extraction. Handing the photo to a vision-capable model would
+  likely beat the keyword categoriser and cope better with unusual receipt
+  layouts, but it needs an API key and costs money per scan — the whole point
+  of the current setup is that it's free and offline.

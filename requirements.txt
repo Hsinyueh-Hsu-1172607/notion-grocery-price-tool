@@ -1,5 +1,11 @@
 Flask==3.1.0
 python-dotenv==1.0.1
+notion-client==2.2.1
+
+# Preferred OCR engine on macOS (Apple's Vision framework)
+pyobjc-framework-Vision==12.2.2; sys_platform == "darwin"
+pyobjc-framework-Quartz==12.2.2; sys_platform == "darwin"
+
+# Fallback OCR engine, used when Vision is unavailable
 pytesseract==0.3.13
 Pillow==11.1.0
-notion-client==2.2.1
