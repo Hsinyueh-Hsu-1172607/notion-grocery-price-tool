@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageOps
 
 CATEGORIES = [
     "Produce", "Meat & Seafood", "Dairy & Eggs", "Bakery", "Pantry",
@@ -117,7 +117,8 @@ def extract_receipt(image_path):
 
     Returns (parsed_dict_or_None, raw_text).
     """
-    raw_text = pytesseract.image_to_string(Image.open(image_path))
+    image = ImageOps.exif_transpose(Image.open(image_path))
+    raw_text = pytesseract.image_to_string(image)
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
     if not lines:
