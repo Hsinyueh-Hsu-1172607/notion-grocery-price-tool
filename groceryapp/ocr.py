@@ -13,6 +13,7 @@ a row the rightmost price-shaped run is the amount while what sits to its
 left is the item. That is much steadier than pattern-matching a flat string,
 because it uses where things actually sit on the paper.
 """
+import math
 import re
 from datetime import datetime
 
@@ -59,19 +60,37 @@ _SKIP_ROW_KEYWORDS = [
 # around the decimal separator and strip them out when converting.
 _NUMBER = r"\d+(?:\s*[.,]\s*\d+)?"
 
-_PRICE_RE = re.compile(rf"^\$?\s*(\d+\s*[.,]\s*\d{{2}})$")
-_TRAILING_PRICE_RE = re.compile(rf"\$?\s*(\d+\s*[.,]\s*\d{{2}})\s*$")
+# Receipts tag lines with trailing markers — Pak'nSave and New World print a
+# "*" beside GST-applicable items — so a price is not always the last thing on
+# the line.
+_MARKER = r"[\s*]*"
 
-# e.g. "0.840 kg @ $8.99/kg" or "2 @ $1.50"
-_QTY_LINE_RE = re.compile(
-    rf"^({_NUMBER})\s*(?:kg|kgs|g|ea|each)?\s*@\s*\$?({_NUMBER})", re.IGNORECASE
+_PRICE_RE = re.compile(rf"^\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
+_TRAILING_PRICE_RE = re.compile(rf"\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
+
+# The "how many at what price" part of a line, e.g. "0.840 kg @ $8.99/kg" or
+# "2 @ $1.50". It appears on its own indented line at some shops and inline
+# after the item name at others, so this is searched for rather than anchored.
+_QTY_RE = re.compile(
+    rf"({_NUMBER})\s*(?:kg|kgs|g|ea|each)?\s*@\s*\$?({_NUMBER})", re.IGNORECASE
 )
 
+# A run that is only a line marker, such as Pak'nSave's GST asterisk.
+_MARKER_ONLY_RE = re.compile(r"^[\s*\-–—=]+$")
 
-_DATE_PATTERNS = [
-    (re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b"), 4),
-    (re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2})\b"), 2),
-]
+
+_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+# NZ receipts date themselves in several ways: 12/07/2026, 19-Jul-2026,
+# 12Jul26, 2026-07-07. Ordered most to least specific.
+_ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+_NAMED_MONTH_RE = re.compile(
+    r"\b(\d{1,2})[-\s]?([A-Za-z]{3})[A-Za-z]*[-\s]?(\d{4}|\d{2})\b"
+)
+_NUMERIC_DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})\b")
 
 
 def _to_float(text):
@@ -130,7 +149,14 @@ def _read_blocks_vision(image_path):
         # Vision's origin is bottom-left; flip to top-down.
         height = box.size.height
         y_centre = 1.0 - (box.origin.y + height / 2)
-        blocks.append((text, box.origin.x, y_centre, height))
+
+        # Vision reports the text's actual quadrilateral, so its top edge
+        # gives the baseline tilt of this run. Negated because y is flipped.
+        top_left = observation.topLeft()
+        top_right = observation.topRight()
+        angle = -math.atan2(top_right.y - top_left.y, top_right.x - top_left.x)
+
+        blocks.append((text, box.origin.x, y_centre, height, angle))
     return blocks
 
 
@@ -168,7 +194,9 @@ def _read_blocks_tesseract(image_path):
         text = " ".join(t for _, t in sorted(entry["words"]))
         box_height = (entry["bottom"] - entry["top"]) / height
         y_centre = ((entry["top"] + entry["bottom"]) / 2) / height
-        blocks.append((text, entry["left"] / width, y_centre, box_height))
+        # Tesseract reports upright boxes only, so it gives us no tilt to
+        # work with — treat every run as level.
+        blocks.append((text, entry["left"] / width, y_centre, box_height, 0.0))
     return blocks
 
 
@@ -183,25 +211,79 @@ def _read_blocks(image_path):
 # Layout: group positioned text into visual rows.
 # --------------------------------------------------------------------------
 
+def _median(values):
+    ordered = sorted(values)
+    return ordered[len(ordered) // 2]
+
+
+def _estimate_skew(blocks, median_height):
+    """Find the page's tilt.
+
+    A receipt is rarely photographed square-on, and on a tilted page a printed
+    line's vertical position drifts as you move across it — enough that a
+    right-hand price lands nearer the *next* line's text than its own.
+
+    Vision reports a per-run angle, but only meaningfully for runs long enough
+    to have a direction; short ones like "$2.97" come back as zero, which drags
+    a plain median to nothing. So the long runs set the estimate, and a narrow
+    projection-profile search refines it: the best angle is the one that
+    collapses the text into the tightest horizontal bands. That search stays
+    deliberately narrow, because tilting by a whole line-height also lines the
+    text up into neat bands — just against the wrong lines.
+    """
+    long_runs = [b[4] for b in blocks if len(b[0]) >= 8]
+    base = _median(long_runs) if long_runs else 0.0
+
+    bin_width = max(median_height * 0.5, 1e-4)
+    best_angle, best_score = base, -1.0
+
+    for step in range(-15, 16):  # base ±1.5°, tenth-of-a-degree steps
+        angle = base + math.radians(step * 0.1)
+        sin_a, cos_a = math.sin(angle), math.cos(angle)
+
+        # Two bin phases, so a band straddling a bin edge isn't scored as if
+        # it were spread out.
+        for phase in (0.0, 0.5):
+            counts = {}
+            for _, x, y, _, _ in blocks:
+                key = int((y * cos_a - x * sin_a) / bin_width + phase)
+                counts[key] = counts.get(key, 0) + 1
+            score = sum(count * count for count in counts.values())
+            if score > best_score:
+                best_score, best_angle = score, angle
+
+    return best_angle
+
+
 def _group_rows(blocks):
-    """Cluster text blocks into rows by vertical position, each row's runs
-    ordered left to right."""
+    """Cluster text blocks into rows, each row's runs ordered left to right."""
     if not blocks:
         return []
 
-    heights = sorted(b[3] for b in blocks)
-    median_height = heights[len(heights) // 2] or 0.01
+    median_height = _median([b[3] for b in blocks]) or 0.01
+
+    skew = _estimate_skew(blocks, median_height)
+    sin_skew, cos_skew = math.sin(skew), math.cos(skew)
+
+    def line_position(x, y):
+        return y * cos_skew - x * sin_skew
+
     tolerance = median_height * 0.7
 
+    positioned = sorted(
+        ((line_position(x, y), x, text) for text, x, y, _, _ in blocks),
+        key=lambda item: item[0],
+    )
+
     rows = []
-    for text, x, y, h in sorted(blocks, key=lambda b: b[2]):
-        if rows and abs(y - rows[-1]["y"]) <= tolerance:
-            row = rows[-1]
-            row["runs"].append((x, text))
-            # Running mean keeps the row anchor stable as runs are added.
-            row["y"] = (row["y"] * (len(row["runs"]) - 1) + y) / len(row["runs"])
+    for position, x, text in positioned:
+        # Measure against where the row started, not a running mean: letting
+        # the anchor slide downwards as runs join lets one row swallow the
+        # next, one small step at a time.
+        if rows and position - rows[-1]["y"] <= tolerance:
+            rows[-1]["runs"].append((x, text))
         else:
-            rows.append({"y": y, "runs": [(x, text)]})
+            rows.append({"y": position, "runs": [(x, text)]})
 
     for row in rows:
         row["runs"].sort()
@@ -210,7 +292,11 @@ def _group_rows(blocks):
 
 def _row_parts(row):
     """Split a row into (left_text, price_or_None)."""
-    runs = [text for _, text in row["runs"]]
+    # Receipts flag lines with markers like a trailing "*" (GST-applicable at
+    # Pak'nSave), which OCR may hand back as its own run.
+    runs = [text for _, text in row["runs"] if not _MARKER_ONLY_RE.match(text)]
+    if not runs:
+        return "", None
 
     # A price sitting in its own run on the right (typical of Vision output).
     match = _PRICE_RE.match(runs[-1]) if len(runs) > 1 else None
@@ -221,7 +307,7 @@ def _row_parts(row):
     joined = " ".join(runs)
     match = _TRAILING_PRICE_RE.search(joined)
     if match:
-        return joined[: match.start()].strip(" .-*:"), _to_float(match.group(1))
+        return joined[: match.start()].strip(" .-*:="), _to_float(match.group(1))
     return joined.strip(), None
 
 
@@ -238,24 +324,52 @@ def _guess_category(item_name):
 
 
 def _is_skippable(text):
-    lowered = text.lower()
-    return any(kw in lowered for kw in _SKIP_ROW_KEYWORDS)
+    # OCR drops spaces into words ("Visa" comes back as "Vi sa"), which would
+    # otherwise sneak a payment line through as if it were a purchase.
+    squashed = re.sub(r"\s+", "", text).lower()
+    return any(kw.replace(" ", "") in squashed for kw in _SKIP_ROW_KEYWORDS)
+
+
+def _is_detail_row(text):
+    """Is this figures rather than a product name — a barcode, a count, a
+    column of numbers? Such a row belongs to the name printed above it."""
+    return not any(c.isalpha() for c in text)
+
+
+def _build_date(year, month, day):
+    year, month, day = int(year), int(month), int(day)
+    if year < 100:
+        year += 2000
+    try:
+        return datetime(year, month, day).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _date_in(text):
+    match = _ISO_DATE_RE.search(text)
+    if match:
+        return _build_date(*match.groups())
+
+    match = _NAMED_MONTH_RE.search(text)
+    if match:
+        day, month_name, year = match.groups()
+        month = _MONTHS.get(month_name.lower())
+        if month:
+            return _build_date(year, month, day)
+
+    match = _NUMERIC_DATE_RE.search(text)
+    if match:
+        day, month, year = match.groups()
+        return _build_date(year, month, day)
+    return None
 
 
 def _find_date(rows):
     for row in rows:
-        text = " ".join(t for _, t in row["runs"])
-        for pattern, year_digits in _DATE_PATTERNS:
-            match = pattern.search(text)
-            if not match:
-                continue
-            day, month, year = match.groups()
-            if year_digits == 2:
-                year = "20" + year
-            try:
-                return datetime(int(year), int(month), int(day)).strftime("%Y-%m-%d")
-            except ValueError:
-                continue
+        found = _date_in(" ".join(t for _, t in row["runs"]))
+        if found:
+            return found
     return None
 
 
@@ -273,20 +387,27 @@ def _find_amount(rows, keyword, exclude=()):
 def _find_store_name(rows):
     """Store name sits at the top on most receipts, but at the bottom on some
     (NZ produce shops in particular), so check the top first and fall back."""
-    def usable(text):
-        if len(text) < 3 or _is_skippable(text):
-            return False
-        # Must read as a plain name: starts with a letter, and holds only
-        # letters and light punctuation from there. This rejects section
-        # rules ("----FOOD----" survives OCR as "-FOOD") as well as
-        # addresses and phone numbers ("Lincoln 7608").
-        return bool(re.fullmatch(r"[A-Za-z][A-Za-z&'. ]*", text))
+    def as_name(text):
+        if _is_skippable(text):
+            return None
+        # Keep the leading run of letters and light punctuation, so a header
+        # like "Sunson Asian Food Market =Part Wigram" still yields a name.
+        # Requiring it to *start* with letters rejects section rules
+        # ("----FOOD----" survives OCR as "-FOOD") and addresses alike.
+        match = re.match(r"[A-Za-z][A-Za-z&'. ]*", text)
+        if not match:
+            return None
+        name = match.group(0).strip(" .")
+        return name if len(name) >= 3 else None
 
     for candidate_rows in (rows[:2], rows[-5:]):
         for row in candidate_rows:
             text, price = _row_parts(row)
-            if price is None and usable(text):
-                return text
+            if price is not None:
+                continue
+            name = as_name(text)
+            if name:
+                return name
     return None
 
 
@@ -296,6 +417,11 @@ def _parse_items(rows):
 
     for row in rows:
         text, price = _row_parts(row)
+
+        # Purchases are always printed above the totals. Stopping there keeps
+        # the payment and footer lines below from being read as items.
+        if "total" in re.sub(r"\s+", "", text).lower():
+            break
 
         if price is None:
             # A bare line with no amount — most likely an item name whose
@@ -312,16 +438,23 @@ def _parse_items(rows):
         unit_price = price
         name = text
 
-        qty_match = _QTY_LINE_RE.match(text)
+        qty_match = _QTY_RE.search(text)
         if qty_match:
-            # This row is "0.840 kg @ $8.99/kg   $7.55" — the real name was
-            # on the row above it.
             try:
                 quantity = _to_float(qty_match.group(1))
                 unit_price = _to_float(qty_match.group(2))
             except ValueError:
                 quantity, unit_price = 1, price
-            name = pending_name or text
+
+            leading = text[: qty_match.start()].strip(" .-*:=")
+            # Two shapes show up. Some shops print the name on its own line
+            # and indent the quantity beneath it, leaving nothing before the
+            # "@" here; others print name and quantity on one line.
+            name = leading if leading else (pending_name or text)
+        elif _is_detail_row(text) and pending_name:
+            # No "@" at all: shops like the Asian grocers print the name on
+            # one line and a barcode-and-figures line beneath it.
+            name = pending_name
 
         if not name or len(name) < 2:
             pending_name = None
@@ -358,8 +491,13 @@ def extract_receipt(image_path):
         "currency": "NZD",
         "items": _parse_items(rows),
         "subtotal": _find_amount(rows, "subtotal"),
-        "gst": _find_amount(rows, "gst"),
-        "total": _find_amount(rows, "total", exclude=("subtotal",)),
+        # "Total including GST" is a total, not a GST amount — don't let it
+        # answer for both.
+        "gst": _find_amount(rows, "gst", exclude=("total",)),
+        # "Total Discount" and "Total Savings" are not what was paid.
+        "total": _find_amount(
+            rows, "total", exclude=("subtotal", "discount", "saving", "items")
+        ),
         "ocr_engine": engine,
     }
     return parsed, raw_text
