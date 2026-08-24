@@ -78,4 +78,35 @@ input {
   gap: 0.5rem;
 }
 
+.camera-panel {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #ddd;
+}
+
+.camera-panel h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.3rem;
+}
+
+.camera-panel .hint {
+  color: #666;
+  font-size: 0.9rem;
+  margin-top: 0;
+}
+
+.camera-panel button + button {
+  margin-left: 0.5rem;
+  background: #6b7280;
+}
+
+#camera-preview {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 8px;
+  background: #000;
+  margin: 0.5rem 0;
+}
+
 a { color: #1d4ed8; }

@@ -2,21 +2,129 @@
 {% block title %}Scan Receipt - Grocery Price Tool{% endblock %}
 {% block content %}
   <h1>Scan a Receipt</h1>
-  <p>Opening this page on your phone's browser will open the camera directly;
-     on a computer it opens a file picker. Results are written straight to
-     your Notion database — if anything's misread, just fix it there.</p>
+  <p>Pick a photo, or capture one with this computer's camera. Results are
+     written straight to your Notion database — if anything's misread, just
+     fix it there.</p>
 
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
   <form method="post" enctype="multipart/form-data" id="upload-form">
-    <input type="file" name="photo" accept="image/*" capture="environment" required>
+    <input type="file" name="photo" id="photo-input" accept="image/*"
+           capture="environment" required>
     <button type="submit">Scan &amp; Log to Notion</button>
   </form>
+
+  <section class="camera-panel">
+    <h2>Or use this computer's camera</h2>
+    <p class="hint">A laptop webcam is far lower resolution than a phone
+       camera, so hold the receipt close and steady, in good light. If the
+       text comes out unreadable, photograph it with your phone instead and
+       pick the file above.</p>
+
+    <button type="button" id="camera-start">Turn camera on</button>
+
+    <div id="camera-stage" hidden>
+      <video id="camera-preview" playsinline autoplay muted></video>
+      <div>
+        <button type="button" id="camera-capture">Capture &amp; scan</button>
+        <button type="button" id="camera-stop">Turn camera off</button>
+      </div>
+    </div>
+
+    <p id="camera-error" class="error" hidden></p>
+  </section>
+
   <p id="processing" hidden>Reading the receipt, please wait…</p>
 
   <script>
-    document.getElementById("upload-form").addEventListener("submit", function () {
-      document.getElementById("processing").hidden = false;
-    });
+    (function () {
+      var form = document.getElementById("upload-form");
+      var fileInput = document.getElementById("photo-input");
+      var processing = document.getElementById("processing");
+
+      var startButton = document.getElementById("camera-start");
+      var stopButton = document.getElementById("camera-stop");
+      var captureButton = document.getElementById("camera-capture");
+      var stage = document.getElementById("camera-stage");
+      var preview = document.getElementById("camera-preview");
+      var cameraError = document.getElementById("camera-error");
+
+      var stream = null;
+
+      form.addEventListener("submit", function () {
+        processing.hidden = false;
+      });
+
+      function fail(message) {
+        cameraError.textContent = message;
+        cameraError.hidden = false;
+      }
+
+      // getUserMedia needs a secure context: https, or http on localhost.
+      // Reaching this page over a LAN IP counts as neither.
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        startButton.disabled = true;
+        fail("This browser won't give the page camera access here. Camera " +
+             "capture needs the page opened over https or on localhost.");
+        return;
+      }
+
+      startButton.addEventListener("click", function () {
+        cameraError.hidden = true;
+        navigator.mediaDevices.getUserMedia({
+          video: {width: {ideal: 1920}, height: {ideal: 1080}}
+        }).then(function (mediaStream) {
+          stream = mediaStream;
+          preview.srcObject = mediaStream;
+          stage.hidden = false;
+          startButton.hidden = true;
+        }).catch(function (err) {
+          fail("Couldn't open the camera: " + err.message);
+        });
+      });
+
+      function stopCamera() {
+        if (stream) {
+          stream.getTracks().forEach(function (track) { track.stop(); });
+          stream = null;
+        }
+        preview.srcObject = null;
+        stage.hidden = true;
+        startButton.hidden = false;
+      }
+
+      stopButton.addEventListener("click", stopCamera);
+
+      captureButton.addEventListener("click", function () {
+        if (!stream) { return; }
+
+        var canvas = document.createElement("canvas");
+        canvas.width = preview.videoWidth;
+        canvas.height = preview.videoHeight;
+        canvas.getContext("2d").drawImage(preview, 0, 0);
+
+        canvas.toBlob(function (blob) {
+          if (!blob) {
+            fail("Couldn't read a frame from the camera. Try again.");
+            return;
+          }
+          // Hand the captured frame to the same file input the normal upload
+          // uses, so the whole server-side path stays identical.
+          try {
+            var file = new File([blob], "capture.jpg", {type: "image/jpeg"});
+            var transfer = new DataTransfer();
+            transfer.items.add(file);
+            fileInput.files = transfer.files;
+          } catch (err) {
+            fail("This browser can't attach the captured photo. Save a photo " +
+                 "and use the file picker above instead.");
+            return;
+          }
+          stopCamera();
+          processing.hidden = false;
+          form.submit();
+        }, "image/jpeg", 0.95);
+      });
+    })();
   </script>
 {% endblock %}
