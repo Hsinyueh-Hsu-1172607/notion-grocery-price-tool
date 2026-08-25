@@ -6,7 +6,9 @@
      your Notion database, then look up what you've paid for the same item
      across different stores and dates.</p>
   <p>
+    <a href="{{ url_for('spending') }}">📊 Spending — today or this month</a><br>
     <a href="{{ url_for('upload') }}">📷 Scan a Receipt</a><br>
+    <a href="{{ url_for('expense') }}">＋ Add a Non-grocery Expense</a><br>
     <a href="{{ url_for('compare') }}">🔍 Compare Prices</a><br>
     <a href="{{ notion_url }}" target="_blank" rel="noopener">🗂 Open Database in Notion</a>
   </p>

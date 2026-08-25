@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Add an Expense - Grocery Price Tool{% endblock %}
+{% block content %}
+  <h1>Add an Expense</h1>
+  <p>For spending that doesn't come off a supermarket receipt — rent, a bus
+     fare, dinner out. It lands in the same Notion database, so it counts
+     towards your daily and monthly totals.</p>
+
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <form method="post" class="stacked-form">
+    <label>
+      Description
+      <input type="text" name="description" required
+             placeholder="e.g. Bus fare to campus"
+             value="{{ form.description if form else '' }}">
+    </label>
+
+    <label>
+      Amount ($)
+      <input type="number" name="amount" step="0.01" min="0" required
+             value="{{ form.amount if form else '' }}">
+    </label>
+
+    <label>
+      Date
+      <input type="date" name="spent_on"
+             value="{{ form.spent_on if form else today }}">
+    </label>
+
+    <label>
+      Category
+      <select name="category">
+        {% for c in categories %}
+          <option value="{{ c }}"
+            {% if form and form.category == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Where (optional)
+      <input type="text" name="store" placeholder="e.g. Metro"
+             value="{{ form.store if form else '' }}">
+    </label>
+
+    <button type="submit">Save</button>
+  </form>
+{% endblock %}

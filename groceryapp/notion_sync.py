@@ -46,6 +46,26 @@ def add_purchase_items(items, store_name, purchase_date):
     return count
 
 
+def add_expense(description, amount, spent_on, category, store=None):
+    """Record a single spend that didn't come from a scanned receipt — rent,
+    a bus fare, dinner out. Same database as scanned items, so the spending
+    totals cover everything without having to merge two sources.
+    """
+    properties = {
+        "Item": {"title": [{"text": {"content": description}}]},
+        "Category": {"select": {"name": category or "Other"}},
+        "Line Total": {"number": amount},
+        "Purchase Date": {"date": {"start": spent_on}},
+    }
+    if store:
+        properties["Store"] = {"select": {"name": store}}
+
+    get_client().pages.create(
+        parent={"database_id": os.environ["NOTION_DATABASE_ID"]},
+        properties=properties,
+    )
+
+
 def _plain_title(properties, name):
     parts = properties.get(name, {}).get("title", [])
     return parts[0]["plain_text"] if parts else ""
@@ -65,31 +85,68 @@ def _date(properties, name):
     return value["start"] if value else None
 
 
-def query_item_history(query_text):
-    """Search the Notion database for items matching query_text, sorted by
-    unit price ascending (cheapest first) so it reads as a price comparison.
+def _query_all(**kwargs):
+    """Query the database, following Notion's pagination.
+
+    Notion returns at most 100 rows per call; without this a month's worth of
+    shopping would quietly go missing from the totals.
     """
     client = get_client()
     database_id = os.environ["NOTION_DATABASE_ID"]
 
-    response = client.databases.query(
-        database_id=database_id,
-        filter={"property": "Item", "title": {"contains": query_text}},
-    )
+    pages, cursor = [], None
+    while True:
+        response = client.databases.query(
+            database_id=database_id, start_cursor=cursor, **kwargs
+        )
+        pages.extend(response["results"])
+        if not response.get("has_more"):
+            return pages
+        cursor = response["next_cursor"]
 
-    rows = []
-    for page in response["results"]:
-        props = page["properties"]
-        rows.append({
-            "item_name": _plain_title(props, "Item"),
-            "store_name": _select_name(props, "Store"),
-            "category": _select_name(props, "Category"),
-            "unit_price": _number(props, "Unit Price"),
-            "unit": _select_name(props, "Unit"),
-            "quantity": _number(props, "Quantity"),
-            "line_total": _number(props, "Line Total"),
-            "purchase_date": _date(props, "Purchase Date"),
-        })
 
+def _as_row(page):
+    props = page["properties"]
+    return {
+        "item_name": _plain_title(props, "Item"),
+        "store_name": _select_name(props, "Store"),
+        "category": _select_name(props, "Category"),
+        "unit_price": _number(props, "Unit Price"),
+        "unit": _select_name(props, "Unit"),
+        "quantity": _number(props, "Quantity"),
+        "line_total": _number(props, "Line Total"),
+        "purchase_date": _date(props, "Purchase Date"),
+    }
+
+
+def query_item_history(query_text):
+    """Search the Notion database for items matching query_text, sorted by
+    unit price ascending (cheapest first) so it reads as a price comparison.
+    """
+    rows = [
+        _as_row(page)
+        for page in _query_all(
+            filter={"property": "Item", "title": {"contains": query_text}}
+        )
+    ]
     rows.sort(key=lambda r: (r["unit_price"] is None, r["unit_price"]))
+    return rows
+
+
+def query_spending(start_date, end_date):
+    """Every recorded spend between two dates (inclusive), newest first."""
+    rows = [
+        _as_row(page)
+        for page in _query_all(
+            filter={
+                "and": [
+                    {"property": "Purchase Date",
+                     "date": {"on_or_after": start_date}},
+                    {"property": "Purchase Date",
+                     "date": {"on_or_before": end_date}},
+                ]
+            },
+            sorts=[{"property": "Purchase Date", "direction": "descending"}],
+        )
+    ]
     return rows

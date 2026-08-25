@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Spending - Grocery Price Tool{% endblock %}
+{% block content %}
+  <h1>Spending</h1>
+
+  <form method="get" class="period-form">
+    <span class="toggle">
+      <a href="{{ url_for('spending', period='day', on=on.isoformat()) }}"
+         class="{% if period == 'day' %}active{% endif %}">Day</a>
+      <a href="{{ url_for('spending', period='month', on=on.strftime('%Y-%m')) }}"
+         class="{% if period == 'month' %}active{% endif %}">Month</a>
+    </span>
+
+    <input type="hidden" name="period" value="{{ period }}">
+    {% if period == 'day' %}
+      <input type="date" name="on" value="{{ on.isoformat() }}"
+             onchange="this.form.submit()">
+    {% else %}
+      <input type="month" name="on" value="{{ on.strftime('%Y-%m') }}"
+             onchange="this.form.submit()">
+    {% endif %}
+  </form>
+
+  <div class="summary-cards">
+    <div class="card">
+      <span class="label">
+        {% if period == 'day' %}Spent on {{ on.strftime('%d %b %Y') }}
+        {% else %}Spent in {{ on.strftime('%B %Y') }}{% endif %}
+      </span>
+      <span class="value">${{ "%.2f"|format(total) }}</span>
+    </div>
+    <div class="card">
+      <span class="label">Entries</span>
+      <span class="value">{{ rows|length }}</span>
+    </div>
+  </div>
+
+  <p><a href="{{ url_for('expense') }}">＋ Add an expense</a></p>
+
+  {% if by_category %}
+    <h2>By category</h2>
+    <table class="data-table">
+      <thead><tr><th>Category</th><th>Amount</th><th>Share</th></tr></thead>
+      <tbody>
+        {% for name, amount in by_category %}
+          <tr>
+            <td>{{ name }}</td>
+            <td>${{ "%.2f"|format(amount) }}</td>
+            <td>
+              <span class="bar" style="width: {{ (amount / total * 100)|round(1) if total else 0 }}%"></span>
+              {{ ((amount / total * 100)|round(1)) if total else 0 }}%
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>Detail</h2>
+    <table class="data-table">
+      <thead>
+        <tr><th>Date</th><th>Item</th><th>Store</th><th>Category</th><th>Amount</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.purchase_date or "—" }}</td>
+            <td>{{ row.item_name }}</td>
+            <td>{{ row.store_name or "—" }}</td>
+            <td>{{ row.category or "—" }}</td>
+            <td>
+              {{- "$%.2f"|format(row.line_total) if row.line_total is not none else "—" -}}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Nothing recorded for this
+       {% if period == 'day' %}day{% else %}month{% endif %}.
+       <a href="{{ url_for('expense') }}">Add an expense</a> or
+       <a href="{{ url_for('upload') }}">scan a receipt</a>.</p>
+  {% endif %}
+{% endblock %}

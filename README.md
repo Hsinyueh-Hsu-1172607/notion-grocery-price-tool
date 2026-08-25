@@ -75,11 +75,20 @@ land in `Other` and are worth correcting in Notion.
 ## Features
 
 - **Scan a receipt** — on mobile, the file input opens the camera directly;
-  on desktop it opens a file picker.
+  on desktop, pick a file or capture a frame from the webcam.
 - **Automatic logging** — each line item is written to Notion as its own
-  row: item, store, category, quantity, unit price, line total, date.
+  row: item, store, category, quantity, unit, unit price, line total, date.
+- **Spending** — total spent today or this month, split by category, with
+  the entries behind it.
+- **Manual expenses** — record spending that never had a supermarket
+  receipt (rent, transport, a meal out) into the same database, so the
+  totals cover everything.
 - **Price comparison** — search an item name and see every store you've
   bought it from, cheapest first.
+
+Because Notion holds the data, the same records are readable from the
+Notion app on your phone — which is what you actually want standing in a
+supermarket aisle, with the laptop at home.
 
 ## Getting this running
 
@@ -147,8 +156,8 @@ land in `Other` and are worth correcting in Notion.
 groceryapp/
 ├── __init__.py     # creates the Flask app, loads .env
 ├── ocr.py           # Vision/Tesseract OCR + layout-aware parsing (shared with receipt-tracker)
-├── notion_sync.py    # writes scanned items to Notion, queries them back for comparison
-├── routes.py          # / , /upload , /compare
+├── notion_sync.py    # reads and writes the Notion database
+├── routes.py          # / , /spending , /expense , /upload , /compare
 ├── templates/
 └── static/
 setup_notion.py     # one-off: creates the Notion database, prints its ID

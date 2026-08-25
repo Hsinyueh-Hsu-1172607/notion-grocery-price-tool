@@ -78,6 +78,68 @@ input {
   gap: 0.5rem;
 }
 
+.summary-cards {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.card .label { font-size: 0.85rem; color: #666; }
+.card .value { font-size: 1.6rem; font-weight: 600; }
+
+.period-form {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.toggle a {
+  display: inline-block;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid #1d4ed8;
+  text-decoration: none;
+  color: #1d4ed8;
+}
+
+.toggle a:first-child { border-radius: 6px 0 0 6px; }
+.toggle a:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+.toggle a.active { background: #1d4ed8; color: white; }
+
+.bar {
+  display: inline-block;
+  height: 0.6rem;
+  background: #93c5fd;
+  border-radius: 3px;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  min-width: 2px;
+}
+
+.stacked-form label {
+  display: block;
+  margin: 0.8rem 0;
+}
+
+.stacked-form input,
+.stacked-form select {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  padding: 0.45rem;
+  margin-top: 0.2rem;
+}
+
 .camera-panel {
   margin-top: 2rem;
   padding-top: 1.5rem;
