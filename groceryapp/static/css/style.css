@@ -5,7 +5,7 @@
 :root {
   /* Sampled from the parchment in the banner, so the page and the artwork
      read as one sheet of paper. */
-  --paper: #fbf3e6;
+  --paper: #f9f1df;
   --surface: #fffdf8;
   --surface-2: #f4ead9;
   --line: #e2d6c0;
@@ -80,15 +80,21 @@ a:hover { color: var(--teal-hover); }
 
 .masthead {
   text-align: center;
-  padding: var(--space-5) var(--space-5) 0;
+  padding: var(--space-4) var(--space-5) 0;
 }
 
-/* The banner is the masthead — no wordmark beside it, since the artwork
-   carries the name itself. */
+/* The banner is the masthead. Its artwork is wordless by design, with a
+   blank band across the middle; the title is laid over that band as real
+   text, so it stays sharp at any size and can be corrected in one place. */
 .masthead .brand {
   display: block;
-  max-width: var(--container);
+  position: relative;
+  /* Narrower than the content column: at full width the banner dominated
+     every page, and it repeats on all of them. */
+  max-width: 42rem;
   margin: 0 auto;
+  container-type: inline-size;
+  text-decoration: none;
 }
 
 .masthead .brand img {
@@ -96,6 +102,39 @@ a:hover { color: var(--teal-hover); }
   width: 100%;
   height: auto;
   border-radius: var(--radius);
+}
+
+.masthead .brand-title {
+  position: absolute;
+  /* The clear band on the artwork runs from 46% to 65% of its height,
+     between the two engraved rules. Horizontally it is not symmetric —
+     the compass on the right intrudes further than anything on the left —
+     so the box is inset more from the right. */
+  top: 46%;
+  height: 19%;
+  left: 28%;
+  right: 27%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-family: "Pinyon Script", "Snell Roundhand", cursive;
+  /* Sized against the banner rather than the viewport, so it keeps its
+     place on the art once the banner stops growing. */
+  font-size: 1.3rem;
+  font-size: 3.9cqw;
+  line-height: 1;
+  white-space: nowrap;
+  color: #3a2c17;
+}
+
+.masthead .tagline {
+  margin: var(--space-4) 0 0;
+  font-size: var(--step--1);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
 
 .nav {

@@ -7,15 +7,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,550&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,550&family=Pinyon+Script&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
   <header class="masthead">
     <a class="brand" href="{{ url_for('index') }}">
       <img src="{{ url_for('static', filename='img/hero-banner.jpg') }}"
-           alt="Grocery Price Comparison Tool — The Grand Archive of Domestic Economy and Price Comparison">
+           alt="">
+      <!-- The banner art is deliberately wordless; the title is set in real
+           text over the blank band so it stays sharp and spelled right. -->
+      <span class="brand-title">Grocery Price Comparison Tool</span>
     </a>
+    <p class="tagline">Notion Powered</p>
     <nav class="nav">
       {% set page = request.endpoint %}
       <a href="{{ url_for('index') }}"
