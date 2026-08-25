@@ -20,6 +20,8 @@ def _item_properties(item, store_name, purchase_date):
     }
     if store_name:
         properties["Store"] = {"select": {"name": store_name}}
+    if item.get("unit"):
+        properties["Unit"] = {"select": {"name": item["unit"]}}
     if item.get("unit_price") is not None:
         properties["Unit Price"] = {"number": item["unit_price"]}
     if item.get("line_total") is not None:
@@ -83,6 +85,7 @@ def query_item_history(query_text):
             "store_name": _select_name(props, "Store"),
             "category": _select_name(props, "Category"),
             "unit_price": _number(props, "Unit Price"),
+            "unit": _select_name(props, "Unit"),
             "quantity": _number(props, "Quantity"),
             "line_total": _number(props, "Line Total"),
             "purchase_date": _date(props, "Purchase Date"),

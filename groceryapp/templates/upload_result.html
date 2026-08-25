@@ -14,8 +14,11 @@
         <tr>
           <td>{{ item.name }}</td>
           <td>{{ item.category }}</td>
-          <td>{{ item.quantity }}</td>
-          <td>{{ "%.2f"|format(item.unit_price) if item.unit_price is not none else "—" }}</td>
+          <td>{{ item.quantity }}{% if item.unit %} {{ item.unit }}{% endif %}</td>
+          <td>
+            {{- "%.2f"|format(item.unit_price) if item.unit_price is not none else "—" -}}
+            {%- if item.unit %} / {{ item.unit }}{% endif -%}
+          </td>
         </tr>
       {% endfor %}
     </tbody>

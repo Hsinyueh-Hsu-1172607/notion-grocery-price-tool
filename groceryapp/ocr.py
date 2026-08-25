@@ -71,9 +71,15 @@ _TRAILING_PRICE_RE = re.compile(rf"\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
 # The "how many at what price" part of a line, e.g. "0.840 kg @ $8.99/kg" or
 # "2 @ $1.50". It appears on its own indented line at some shops and inline
 # after the item name at others, so this is searched for rather than anchored.
+# The unit may sit before the "@" (Fruitland) or after the price (Pak'nSave's
+# "1 @ $6.99 EA"), so both spots are captured and whichever turns up is used.
+_UNIT = r"(kgs?|g|ea(?:ch)?)"
 _QTY_RE = re.compile(
-    rf"({_NUMBER})\s*(?:kg|kgs|g|ea|each)?\s*@\s*\$?({_NUMBER})", re.IGNORECASE
+    rf"({_NUMBER})\s*{_UNIT}?\s*@\s*\$?({_NUMBER})\s*/?\s*{_UNIT}?",
+    re.IGNORECASE,
 )
+
+_UNIT_NAMES = {"kg": "kg", "kgs": "kg", "g": "g", "ea": "ea", "each": "ea"}
 
 # A run that is only a line marker, such as Pak'nSave's GST asterisk.
 _MARKER_ONLY_RE = re.compile(r"^[\s*\-–—=]+$")
@@ -436,15 +442,20 @@ def _parse_items(rows):
 
         quantity = 1
         unit_price = price
+        unit = None
         name = text
 
         qty_match = _QTY_RE.search(text)
         if qty_match:
             try:
                 quantity = _to_float(qty_match.group(1))
-                unit_price = _to_float(qty_match.group(2))
+                unit_price = _to_float(qty_match.group(3))
             except ValueError:
                 quantity, unit_price = 1, price
+
+            raw_unit = qty_match.group(2) or qty_match.group(4)
+            if raw_unit:
+                unit = _UNIT_NAMES.get(raw_unit.lower())
 
             leading = text[: qty_match.start()].strip(" .-*:=")
             # Two shapes show up. Some shops print the name on its own line
@@ -463,6 +474,7 @@ def _parse_items(rows):
         items.append({
             "name": name,
             "quantity": quantity,
+            "unit": unit,
             "unit_price": unit_price,
             "line_total": price,
             "category": _guess_category(name),

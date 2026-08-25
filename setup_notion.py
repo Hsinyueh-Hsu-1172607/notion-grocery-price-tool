@@ -19,6 +19,7 @@ database = client.databases.create(
         "Store": {"select": {}},
         "Category": {"select": {}},
         "Unit Price": {"number": {}},
+        "Unit": {"select": {}},
         "Quantity": {"number": {}},
         "Line Total": {"number": {}},
         "Purchase Date": {"date": {}},
