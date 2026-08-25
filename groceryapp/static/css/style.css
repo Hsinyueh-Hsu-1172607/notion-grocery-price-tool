@@ -80,40 +80,28 @@ a:hover { color: var(--teal-hover); }
 
 .masthead {
   text-align: center;
-  padding: var(--space-4) var(--space-5) 0;
+  padding: var(--space-7) var(--space-5) 0;
 }
 
-/* The artwork sits on the same colour as the page and carries no frame, so
-   it melts into the masthead rather than reading as a picture pasted on.
-   The name is set beneath it as text, since the illustration is wordless. */
+/* The masthead is the name alone, set in a copperplate script — the same
+   engraved feel the illustration had, without a picture to carry it. */
 .masthead .brand {
   display: block;
-  /* Narrower than the content column: it repeats on every page, so at full
-     width it dominated them. */
   max-width: 40rem;
   margin: 0 auto;
-  container-type: inline-size;
   text-decoration: none;
   color: inherit;
-}
-
-.masthead .brand img {
-  display: block;
-  width: 100%;
-  height: auto;
 }
 
 .masthead .brand-title {
   display: block;
   font-family: "Pinyon Script", "Snell Roundhand", cursive;
-  /* Sized against the artwork above it rather than the viewport, so the
-     name stays on one line and in proportion at every width. */
-  font-size: 1.6rem;
-  font-size: 7.4cqw;
-  line-height: 1.1;
+  /* The middle term is tuned so the name still fits on one line at 375px,
+     rather than orphaning "Tool" on a second row. */
+  font-size: clamp(1.4rem, 7.4vw, 3.4rem);
+  line-height: 1.15;
   white-space: nowrap;
   color: #3a2c17;
-  margin-top: -0.25em;
 }
 
 .masthead .tagline {
