@@ -1,37 +1,44 @@
 {% extends "base.html" %}
-{% block title %}Compare Prices - Grocery Price Tool{% endblock %}
+{% block title %}Compare Prices · Grocery Price Tool{% endblock %}
 {% block content %}
-  <h1>Compare Prices for an Item</h1>
-  <p>Enter an item name — results are sorted by unit price, cheapest first.</p>
+  <p class="eyebrow">Cheapest first</p>
+  <h1>Compare prices</h1>
+  <p class="lede">Search an item you've bought before to see every store it
+     came from, ordered by unit price.</p>
 
   <form method="get" class="search-form">
-    <input type="text" name="q" placeholder="e.g. milk, eggs…" value="{{ query }}">
+    <input type="text" name="q" placeholder="e.g. milk, kiwifruit…" value="{{ query }}">
     <button type="submit">Search</button>
   </form>
 
   {% if query %}
     {% if results %}
-      <table class="data-table">
-        <thead>
-          <tr><th>Item</th><th>Store</th><th>Unit Price</th><th>Date</th><th>Category</th></tr>
-        </thead>
-        <tbody>
-          {% for row in results %}
-            <tr {% if loop.first %}class="cheapest"{% endif %}>
-              <td>{{ row.item_name }}</td>
-              <td>{{ row.store_name or "—" }}</td>
-              <td>
-                {{- "%.2f"|format(row.unit_price) if row.unit_price is not none else "—" -}}
-                {%- if row.unit %} / {{ row.unit }}{% endif -%}
-              </td>
-              <td>{{ row.purchase_date or "—" }}</td>
-              <td>{{ row.category or "—" }}</td>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Item</th><th>Store</th><th class="numeric">Unit Price</th>
+              <th>Date</th><th>Category</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for row in results %}
+              <tr {% if loop.first %}class="cheapest"{% endif %}>
+                <td>{{ row.item_name }}</td>
+                <td>{{ row.store_name or "—" }}</td>
+                <td class="numeric">
+                  {{- "$%.2f"|format(row.unit_price) if row.unit_price is not none else "—" -}}
+                  {%- if row.unit %} / {{ row.unit }}{% endif -%}
+                </td>
+                <td class="nowrap">{{ row.purchase_date or "—" }}</td>
+                <td>{{ row.category or "—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% else %}
-      <p>No records in Notion matching "{{ query }}".</p>
+      <p class="lede">No records in Notion matching "{{ query }}".</p>
     {% endif %}
   {% endif %}
 {% endblock %}

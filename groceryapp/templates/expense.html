@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Add an Expense - Grocery Price Tool{% endblock %}
+{% block title %}Add an Expense · Grocery Price Tool{% endblock %}
 {% block content %}
-  <h1>Add an Expense</h1>
-  <p>For spending that doesn't come off a supermarket receipt — rent, a bus
-     fare, dinner out. It lands in the same Notion database, so it counts
-     towards your daily and monthly totals.</p>
+  <p class="eyebrow">No receipt needed</p>
+  <h1>Add an expense</h1>
+  <p class="lede">For spending that doesn't come off a supermarket receipt —
+     rent, a bus fare, dinner out. It lands in the same Notion database, so it
+     counts towards your daily and monthly totals.</p>
 
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
 

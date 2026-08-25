@@ -1,17 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Scan Receipt - Grocery Price Tool{% endblock %}
+{% block title %}Scan Receipt · Grocery Price Tool{% endblock %}
 {% block content %}
-  <h1>Scan a Receipt</h1>
-  <p>Pick a photo, or capture one with this computer's camera. Results are
-     written straight to your Notion database — if anything's misread, just
-     fix it there.</p>
+  <p class="eyebrow">Receipt in</p>
+  <h1>Scan a receipt</h1>
+  <p class="lede">Pick a photo, or capture one with this computer's camera.
+     Results are written straight to your Notion database — if anything's
+     misread, fix it there.</p>
 
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
-  <form method="post" enctype="multipart/form-data" id="upload-form">
+  <form method="post" enctype="multipart/form-data" id="upload-form"
+        class="search-form">
     <input type="file" name="photo" id="photo-input" accept="image/*"
            capture="environment" required>
-    <button type="submit">Scan &amp; Log to Notion</button>
+    <button type="submit">Scan &amp; log to Notion</button>
   </form>
 
   <section class="camera-panel">
@@ -21,13 +23,13 @@
        text comes out unreadable, photograph it with your phone instead and
        pick the file above.</p>
 
-    <button type="button" id="camera-start">Turn camera on</button>
+    <button type="button" id="camera-start" class="secondary">Turn camera on</button>
 
     <div id="camera-stage" hidden>
       <video id="camera-preview" playsinline autoplay muted></video>
       <div>
         <button type="button" id="camera-capture">Capture &amp; scan</button>
-        <button type="button" id="camera-stop">Turn camera off</button>
+        <button type="button" id="camera-stop" class="secondary">Turn camera off</button>
       </div>
     </div>
 

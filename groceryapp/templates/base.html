@@ -4,15 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Grocery Price Tool{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,550&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="{{ url_for('index') }}">🛒 Grocery Price Tool</a>
-    <nav>
-      <a href="{{ url_for('spending') }}">Spending</a>
-      <a href="{{ url_for('upload') }}">Scan Receipt</a>
-      <a href="{{ url_for('compare') }}">Compare Prices</a>
+  <header class="masthead">
+    <a class="brand" href="{{ url_for('index') }}">Grocery Price Tool</a>
+    <p class="tagline">Notion Powered</p>
+    <nav class="nav">
+      {% set page = request.endpoint %}
+      <a href="{{ url_for('index') }}"
+         class="{% if page == 'index' %}active{% endif %}">Home</a>
+      <a href="{{ url_for('spending') }}"
+         class="{% if page == 'spending' %}active{% endif %}">Spending</a>
+      <a href="{{ url_for('upload') }}"
+         class="{% if page == 'upload' %}active{% endif %}">Scan Receipt</a>
+      <a href="{{ url_for('expense') }}"
+         class="{% if page == 'expense' %}active{% endif %}">Add Expense</a>
+      <a href="{{ url_for('compare') }}"
+         class="{% if page == 'compare' %}active{% endif %}">Compare Prices</a>
     </nav>
   </header>
   <main class="container">

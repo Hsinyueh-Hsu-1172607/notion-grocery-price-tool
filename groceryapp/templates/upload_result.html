@@ -1,31 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Logged to Notion - Grocery Price Tool{% endblock %}
+{% block title %}Logged to Notion · Grocery Price Tool{% endblock %}
 {% block content %}
+  <p class="eyebrow">{{ count }} item{{ "" if count == 1 else "s" }} added</p>
   <h1>Logged to Notion</h1>
-  <p>
-    Store: {{ store_name or "—" }} / Date: {{ purchase_date or "—" }} /
-    added <strong>{{ count }}</strong> item(s)
+  <p class="lede">
+    {{ store_name or "Unknown store" }} ·
+    {{ purchase_date or "no date found" }}
   </p>
 
-  <table class="data-table">
-    <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Unit Price</th></tr></thead>
-    <tbody>
-      {% for item in items %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
         <tr>
-          <td>{{ item.name }}</td>
-          <td>{{ item.category }}</td>
-          <td>{{ item.quantity }}{% if item.unit %} {{ item.unit }}{% endif %}</td>
-          <td>
-            {{- "%.2f"|format(item.unit_price) if item.unit_price is not none else "—" -}}
-            {%- if item.unit %} / {{ item.unit }}{% endif -%}
-          </td>
+          <th>Item</th><th>Category</th><th class="numeric">Qty</th>
+          <th class="numeric">Unit Price</th>
         </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.category }}</td>
+            <td class="numeric">
+              {{- item.quantity }}{% if item.unit %} {{ item.unit }}{% endif -%}
+            </td>
+            <td class="numeric">
+              {{- "$%.2f"|format(item.unit_price) if item.unit_price is not none else "—" -}}
+              {%- if item.unit %} / {{ item.unit }}{% endif -%}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-  <p>
-    <a href="{{ notion_url }}" target="_blank" rel="noopener">🗂 Open in Notion to review or fix these entries</a><br>
-    <a href="{{ url_for('upload') }}">📷 Scan another receipt</a>
+  <p style="margin-top: 1.5rem;">
+    <a class="button" href="{{ notion_url }}" target="_blank" rel="noopener">Review in Notion ↗</a>
+    <a href="{{ url_for('upload') }}" style="margin-left: 1rem;">Scan another receipt</a>
   </p>
 {% endblock %}
