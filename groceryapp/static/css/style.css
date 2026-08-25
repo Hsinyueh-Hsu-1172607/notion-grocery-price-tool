@@ -3,13 +3,13 @@
    banner on the home page. */
 
 :root {
-  /* Sampled from the parchment in the banner, so the page and the artwork
-     read as one sheet of paper. */
-  --paper: #f9f1df;
-  --surface: #fffdf8;
-  --surface-2: #f4ead9;
-  --line: #e2d6c0;
-  --line-strong: #c8b898;
+  /* Sampled from the banner's own background, so the artwork has no visible
+     edge against the page. */
+  --paper: #f6e8cb;
+  --surface: #fffcf4;
+  --surface-2: #f1e0bd;
+  --line: #ddcda8;
+  --line-strong: #c3ad7f;
 
   --ink: #101010;
   --ink-2: #4a4741;
@@ -83,54 +83,41 @@ a:hover { color: var(--teal-hover); }
   padding: var(--space-4) var(--space-5) 0;
 }
 
-/* The banner is the masthead. Its artwork is wordless by design, with a
-   blank band across the middle; the title is laid over that band as real
-   text, so it stays sharp at any size and can be corrected in one place. */
+/* The artwork sits on the same colour as the page and carries no frame, so
+   it melts into the masthead rather than reading as a picture pasted on.
+   The name is set beneath it as text, since the illustration is wordless. */
 .masthead .brand {
   display: block;
-  position: relative;
-  /* Narrower than the content column: at full width the banner dominated
-     every page, and it repeats on all of them. */
-  max-width: 42rem;
+  /* Narrower than the content column: it repeats on every page, so at full
+     width it dominated them. */
+  max-width: 40rem;
   margin: 0 auto;
   container-type: inline-size;
   text-decoration: none;
+  color: inherit;
 }
 
 .masthead .brand img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: var(--radius);
 }
 
 .masthead .brand-title {
-  position: absolute;
-  /* The clear band on the artwork runs from 46% to 65% of its height,
-     between the two engraved rules. Horizontally it is not symmetric —
-     the compass on the right intrudes further than anything on the left —
-     so the box is inset more from the right. */
-  top: 46%;
-  height: 19%;
-  left: 28%;
-  right: 27%;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
+  display: block;
   font-family: "Pinyon Script", "Snell Roundhand", cursive;
-  /* Sized against the banner rather than the viewport, so it keeps its
-     place on the art once the banner stops growing. */
-  font-size: 1.3rem;
-  font-size: 3.9cqw;
-  line-height: 1;
+  /* Sized against the artwork above it rather than the viewport, so the
+     name stays on one line and in proportion at every width. */
+  font-size: 1.6rem;
+  font-size: 7.4cqw;
+  line-height: 1.1;
   white-space: nowrap;
   color: #3a2c17;
+  margin-top: -0.25em;
 }
 
 .masthead .tagline {
-  margin: var(--space-4) 0 0;
+  margin: var(--space-3) 0 0;
   font-size: var(--step--1);
   letter-spacing: 0.18em;
   text-transform: uppercase;
