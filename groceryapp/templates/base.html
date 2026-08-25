@@ -12,8 +12,10 @@
 </head>
 <body>
   <header class="masthead">
-    <a class="brand" href="{{ url_for('index') }}">Grocery Price Tool</a>
-    <p class="tagline">Notion Powered</p>
+    <a class="brand" href="{{ url_for('index') }}">
+      <img src="{{ url_for('static', filename='img/hero-banner.jpg') }}"
+           alt="Grocery Price Comparison Tool — The Grand Archive of Domestic Economy and Price Comparison">
+    </a>
     <nav class="nav">
       {% set page = request.endpoint %}
       <a href="{{ url_for('index') }}"
