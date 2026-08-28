@@ -1,20 +1,28 @@
 """Read a receipt photo into structured fields.
 
-Two OCR engines, in preference order:
+Three OCR engines, in preference order:
 
-1. macOS Vision (the engine behind Live Text). Free, local, and far more
-   accurate on real phone photos of curved thermal receipts — in testing it
-   read every price at full confidence where Tesseract read none.
-2. Tesseract, as a fallback so the project still runs off a Mac.
+1. macOS Vision (the engine behind Live Text). Free, local, and very accurate
+   on real phone photos of curved thermal receipts — in testing it read every
+   price at full confidence where Tesseract read none. macOS only.
+2. Google Cloud Vision, when GOOGLE_VISION_API_KEY is set. This is what runs
+   when the app is hosted on Linux, where Apple's framework is unavailable.
+3. Tesseract, as a last resort. It needs no key and no network, but on real
+   receipts it misses most of the prices, so results need heavy correction.
 
-Both engines return *positioned* text, and parsing works off that geometry:
+All three return *positioned* text, and parsing works off that geometry:
 text runs are grouped into visual rows by their vertical position, and within
 a row the rightmost price-shaped run is the amount while what sits to its
 left is the item. That is much steadier than pattern-matching a flat string,
 because it uses where things actually sit on the paper.
 """
+import base64
+import json
 import math
+import os
 import re
+import urllib.error
+import urllib.request
 from datetime import datetime
 
 CATEGORIES = [
@@ -206,10 +214,89 @@ def _read_blocks_tesseract(image_path):
     return blocks
 
 
+def _read_blocks_google(image_path):
+    """Google Cloud Vision. Returns None unless GOOGLE_VISION_API_KEY is set.
+
+    This is what runs when the app is hosted rather than on the author's Mac:
+    Apple's Vision framework is macOS-only, and Tesseract reads real receipt
+    photos too poorly to be worth deploying. Like the other engines it hands
+    back positioned text, so the layout parsing below is unchanged.
+    """
+    api_key = os.environ.get("GOOGLE_VISION_API_KEY")
+    if not api_key:
+        return None
+
+    with open(image_path, "rb") as handle:
+        encoded = base64.b64encode(handle.read()).decode("ascii")
+
+    request = urllib.request.Request(
+        f"https://vision.googleapis.com/v1/images:annotate?key={api_key}",
+        data=json.dumps({
+            "requests": [{
+                "image": {"content": encoded},
+                # DOCUMENT_TEXT_DETECTION is tuned for dense printed text;
+                # TEXT_DETECTION is meant for signs and labels.
+                "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
+            }]
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.load(response)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        return None
+
+    responses = payload.get("responses") or [{}]
+    annotation = responses[0].get("fullTextAnnotation")
+    if not annotation:
+        return None
+
+    blocks = []
+    for page in annotation.get("pages", []):
+        width = page.get("width") or 1
+        height = page.get("height") or 1
+        for block in page.get("blocks", []):
+            for paragraph in block.get("paragraphs", []):
+                for word in paragraph.get("words", []):
+                    text = "".join(
+                        symbol.get("text", "")
+                        for symbol in word.get("symbols", [])
+                    ).strip()
+                    if not text:
+                        continue
+
+                    corners = word.get("boundingBox", {}).get("vertices", [])
+                    if len(corners) < 4:
+                        continue
+                    xs = [c.get("x", 0) for c in corners]
+                    ys = [c.get("y", 0) for c in corners]
+
+                    top_left, top_right = corners[0], corners[1]
+                    angle = math.atan2(
+                        top_right.get("y", 0) - top_left.get("y", 0),
+                        (top_right.get("x", 0) - top_left.get("x", 0)) or 1,
+                    )
+
+                    blocks.append((
+                        text,
+                        min(xs) / width,
+                        ((min(ys) + max(ys)) / 2) / height,
+                        (max(ys) - min(ys)) / height,
+                        angle,
+                    ))
+    return blocks or None
+
+
 def _read_blocks(image_path):
-    blocks = _read_blocks_vision(image_path)
-    if blocks:
-        return blocks, "vision"
+    for reader, name in (
+        (_read_blocks_vision, "vision"),
+        (_read_blocks_google, "google"),
+    ):
+        blocks = reader(image_path)
+        if blocks:
+            return blocks, name
     return _read_blocks_tesseract(image_path), "tesseract"
 
 
