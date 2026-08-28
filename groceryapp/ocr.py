@@ -17,12 +17,10 @@ left is the item. That is much steadier than pattern-matching a flat string,
 because it uses where things actually sit on the paper.
 """
 import base64
-import json
+import io
 import math
 import os
 import re
-import urllib.error
-import urllib.request
 from datetime import datetime
 
 CATEGORIES = [
@@ -82,8 +80,10 @@ _TRAILING_PRICE_RE = re.compile(rf"\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
 # The unit may sit before the "@" (Fruitland) or after the price (Pak'nSave's
 # "1 @ $6.99 EA"), so both spots are captured and whichever turns up is used.
 _UNIT = r"(kgs?|g|ea(?:ch)?)"
+# The space after "\$" matters: Google Vision returns words separately, so a
+# price arrives as "$ 7.34" rather than "$7.34".
 _QTY_RE = re.compile(
-    rf"({_NUMBER})\s*{_UNIT}?\s*@\s*\$?({_NUMBER})\s*/?\s*{_UNIT}?",
+    rf"({_NUMBER})\s*{_UNIT}?\s*@\s*\$?\s*({_NUMBER})\s*/?\s*{_UNIT}?",
     re.IGNORECASE,
 )
 
@@ -100,11 +100,18 @@ _MONTHS = {
 
 # NZ receipts date themselves in several ways: 12/07/2026, 19-Jul-2026,
 # 12Jul26, 2026-07-07. Ordered most to least specific.
-_ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+#
+# Separators are matched loosely because Google Vision returns each token
+# separately, so "19-Jul-2026" reaches us spaced out as "19 - Jul - 2026".
+# Only spaces and the separator itself are allowed through, so a run of
+# digits and words can't be stitched into a date that was never printed.
+_ISO_DATE_RE = re.compile(r"\b(\d{4})\s*-\s*(\d{2})\s*-\s*(\d{2})\b")
 _NAMED_MONTH_RE = re.compile(
-    r"\b(\d{1,2})[-\s]?([A-Za-z]{3})[A-Za-z]*[-\s]?(\d{4}|\d{2})\b"
+    r"\b(\d{1,2})[-\s]*([A-Za-z]{3})[A-Za-z]*[-\s]*(\d{4}|\d{2})\b"
 )
-_NUMERIC_DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})\b")
+_NUMERIC_DATE_RE = re.compile(
+    r"\b(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4}|\d{2})\b"
+)
 
 
 def _to_float(text):
@@ -226,26 +233,42 @@ def _read_blocks_google(image_path):
     if not api_key:
         return None
 
-    with open(image_path, "rb") as handle:
-        encoded = base64.b64encode(handle.read()).decode("ascii")
+    import httpx
+    from PIL import Image, ImageOps
 
-    request = urllib.request.Request(
-        f"https://vision.googleapis.com/v1/images:annotate?key={api_key}",
-        data=json.dumps({
-            "requests": [{
-                "image": {"content": encoded},
-                # DOCUMENT_TEXT_DETECTION is tuned for dense printed text;
-                # TEXT_DETECTION is meant for signs and labels.
-                "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
-            }]
-        }).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-    )
+    # Google reads the stored pixels and ignores the EXIF orientation a phone
+    # camera writes, so a rotated photo comes back with its coordinates on a
+    # sideways page — words in a line share an x instead of a y, and the row
+    # grouping below falls apart. Rotate it upright before sending, rather
+    # than trying to undo eight possible orientations afterwards.
+    upright = ImageOps.exif_transpose(Image.open(image_path))
+    if upright.mode != "RGB":
+        upright = upright.convert("RGB")
+
+    buffer = io.BytesIO()
+    upright.save(buffer, format="JPEG", quality=92)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
 
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.load(response)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        # httpx rather than urllib: it verifies against certifi's bundle, so
+        # this works on a python.org install, where urllib has no root
+        # certificates and every HTTPS call fails.
+        response = httpx.post(
+            "https://vision.googleapis.com/v1/images:annotate",
+            params={"key": api_key},
+            json={
+                "requests": [{
+                    "image": {"content": encoded},
+                    # DOCUMENT_TEXT_DETECTION is tuned for dense printed text;
+                    # TEXT_DETECTION is meant for signs and labels.
+                    "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
+                }]
+            },
+            timeout=60,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError):
         return None
 
     responses = payload.get("responses") or [{}]
@@ -548,7 +571,14 @@ def _parse_items(rows):
             # Two shapes show up. Some shops print the name on its own line
             # and indent the quantity beneath it, leaving nothing before the
             # "@" here; others print name and quantity on one line.
-            name = leading if leading else (pending_name or text)
+            #
+            # A stray character or two ahead of the quantity is OCR noise on
+            # an indented line, not a name — reading it as one used to lose
+            # the whole item, since it was then too short to keep.
+            if len(leading) < 3 and pending_name:
+                name = pending_name
+            else:
+                name = leading or pending_name or text
         elif _is_detail_row(text) and pending_name:
             # No "@" at all: shops like the Asian grocers print the name on
             # one line and a barcode-and-figures line beneath it.
