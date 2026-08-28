@@ -15,8 +15,11 @@ set through `GOOGLE_VISION_API_KEY`. `requirements.txt` already marks the
 `pyobjc-*` packages `sys_platform == "darwin"`, so pip skips them on Linux
 rather than failing.
 
-The free tier restricts outbound traffic to an allowlist. Both hosts this
-app needs are on it: `api.notion.com` and `.googleapis.com`.
+The free tier restricts outbound traffic to an allowlist. Both hosts this app
+needs are on it — `api.notion.com` by name and `.googleapis.com` as a wildcard,
+which covers `vision.googleapis.com`. Worth re-checking against
+[the current list](https://www.pythonanywhere.com/whitelist/) before blaming
+the code for a connection that hangs.
 
 ## 1. Get a Google Cloud Vision key
 
@@ -37,10 +40,30 @@ On PythonAnywhere, open a **Bash console**:
 
 ```bash
 git clone <your-repo-url> notion-grocery-price-tool
-cd notion-grocery-price-tool
-mkvirtualenv --python=/usr/bin/python3.10 grocery
-pip install -r requirements.txt
+python3.13 -m venv ~/.virtualenvs/grocery
+source ~/.virtualenvs/grocery/bin/activate
+pip install -r notion-grocery-price-tool/requirements.txt
+python -c "import flask, httpx, notion_client, PIL; print('ALL FOUR OK')"
 ```
+
+**Use 3.13, and `-m venv` rather than `mkvirtualenv`.** On the image this was
+deployed to, `/usr/bin/python3.11` could not import `subprocess`:
+
+```
+File "/usr/local/lib/python3.11/subprocess.py", line 104
+    from _posixsubprocess import fork_exec as _fork_exec
+ModuleNotFoundError: No module named '_posixsubprocess'
+```
+
+`_posixsubprocess` is a compiled part of the standard library, so that install
+is simply incomplete — pip is one of the things that stops working. It is not
+virtualenv's doing and rebuilding the environment does not help; the fix is a
+different interpreter. `PYTHONHOME` and `PYTHONPATH` were both empty, so it
+was not a stray environment variable either.
+
+Check the interpreter before trusting it: the `import subprocess` in the
+`python -c` line above is there to fail loudly rather than leave a half-built
+environment to be discovered later.
 
 If you'd rather not use git, upload a zip through the **Files** tab and
 unzip it in the console instead.
@@ -75,7 +98,10 @@ someone forge a signed-in session without the password.
 
 ## 4. Point the web app at the code
 
-**Web** tab → **Add a new web app** → **Manual configuration** → Python 3.10.
+**Web** tab → **Add a new web app** → **Manual configuration** → Python 3.13.
+
+The version here has to match the one the virtualenv was built with, or the
+web app loads a different interpreter than the packages were installed for.
 
 Then set:
 
