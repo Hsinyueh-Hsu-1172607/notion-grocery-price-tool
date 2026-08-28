@@ -89,9 +89,13 @@ _SKIP_ROW_KEYWORDS = [
 _NUMBER = r"\d+(?:\s*[.,]\s*\d+)?"
 
 # Receipts tag lines with trailing markers — Pak'nSave and New World print a
-# "*" beside GST-applicable items — so a price is not always the last thing on
-# the line.
-_MARKER = r"[\s*]*"
+# "*" beside GST-applicable items, and New World also prints a single-letter
+# tax code ("$3.99 C") — so a price is not always the last thing on the line.
+#
+# The letter must be preceded by a space, which keeps sizes like "COKE 1.25L"
+# from being mistaken for a marked-up price. It is matched as any Unicode
+# letter because OCR reliably returns that "C" as a Cyrillic "С".
+_MARKER = r"[\s*]*(?:\s[^\W\d_])?[\s*]*"
 
 _PRICE_RE = re.compile(rf"^\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
 _TRAILING_PRICE_RE = re.compile(rf"\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
