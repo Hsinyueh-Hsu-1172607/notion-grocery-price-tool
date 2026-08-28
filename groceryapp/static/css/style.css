@@ -53,6 +53,12 @@
 
 * { box-sizing: border-box; }
 
+/* The browser hides [hidden] with its own "display: none", which any display
+   rule written here outranks — an author sheet beats the user-agent one
+   whatever the specificity. Without this, "hidden" silently does nothing to
+   a button or a flex container, which is most of the ones we toggle. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--paper);
@@ -389,6 +395,17 @@ button.danger { background: var(--danger); border-color: var(--danger); }
   align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-5);
+}
+
+/* "Take a photo" works by asking the file input for the camera, which only a
+   device with a camera behind the browser honours — on a desktop the same
+   attribute is ignored and you get the file dialog, which the button beside
+   it already does. A coarse pointer is the closest honest test for "this is
+   a phone or tablet"; the desktop keeps the webcam panel further down. */
+.camera-only { display: none; }
+
+@media (pointer: coarse) {
+  .camera-only { display: inline-block; }
 }
 
 input, select {

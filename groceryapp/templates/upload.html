@@ -3,25 +3,33 @@
 {% block content %}
   <p class="eyebrow">Receipt in</p>
   <h1>Scan a receipt</h1>
-  <p class="lede">Pick a photo, or capture one with this computer's camera.
-     Results are written straight to your Notion database — if anything's
-     misread, fix it there.</p>
+  <p class="lede">Photograph a receipt, pick one you already have, or capture
+     one with this computer's camera. You get to check everything before any
+     of it reaches Notion.</p>
 
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
   <form method="post" enctype="multipart/form-data" id="upload-form"
         class="search-form">
-    <input type="file" name="photo" id="photo-input" accept="image/*"
-           capture="environment" required>
-    <button type="submit">Scan &amp; log to Notion</button>
+    {# No "capture" attribute here. It is added only by the Take a photo
+       button below, because setting it up front means a phone can *only*
+       take a new photo — the library and files stop being reachable. #}
+    <input type="file" name="photo" id="photo-input" accept="image/*" required>
+    <button type="submit" id="submit-button">Scan &amp; log to Notion</button>
   </form>
+
+  {# Replaces the plain input above once JS confirms it can drive it. #}
+  <div id="pick-actions" class="form-actions" hidden>
+    <button type="button" id="take-photo" class="camera-only">Take a photo</button>
+    <button type="button" id="choose-photo" class="secondary">Choose a photo</button>
+  </div>
 
   <section class="camera-panel">
     <h2>Or use this computer's camera</h2>
     <p class="hint">A laptop webcam is far lower resolution than a phone
        camera, so hold the receipt close and steady, in good light. If the
        text comes out unreadable, photograph it with your phone instead and
-       pick the file above.</p>
+       use "Choose a photo" above.</p>
 
     <button type="button" id="camera-start" class="secondary">Turn camera on</button>
 
@@ -44,6 +52,11 @@
       var fileInput = document.getElementById("photo-input");
       var processing = document.getElementById("processing");
 
+      var pickActions = document.getElementById("pick-actions");
+      var takePhoto = document.getElementById("take-photo");
+      var choosePhoto = document.getElementById("choose-photo");
+      var submitButton = document.getElementById("submit-button");
+
       var startButton = document.getElementById("camera-start");
       var stopButton = document.getElementById("camera-stop");
       var captureButton = document.getElementById("camera-capture");
@@ -55,6 +68,37 @@
 
       form.addEventListener("submit", function () {
         processing.hidden = false;
+      });
+
+      // Two ways into the same input. "capture" is set only for the camera
+      // button and cleared for the other, since an input carrying it can no
+      // longer reach the photo library at all.
+      //
+      // The plain input stays in the markup and is only swapped out here, so
+      // without JS the page is still a working file field and a submit.
+      pickActions.hidden = false;
+      fileInput.hidden = true;
+      submitButton.hidden = true;
+
+      function pick(useCamera) {
+        if (useCamera) {
+          fileInput.setAttribute("capture", "environment");
+        } else {
+          fileInput.removeAttribute("capture");
+        }
+        fileInput.click();
+      }
+
+      takePhoto.addEventListener("click", function () { pick(true); });
+      choosePhoto.addEventListener("click", function () { pick(false); });
+
+      // Picking a photo is the whole decision — no reason to make someone
+      // press a second button afterwards.
+      fileInput.addEventListener("change", function () {
+        if (fileInput.files && fileInput.files.length) {
+          processing.hidden = false;
+          form.submit();
+        }
       });
 
       function fail(message) {
