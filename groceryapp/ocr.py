@@ -105,7 +105,10 @@ _TRAILING_PRICE_RE = re.compile(rf"\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
 # after the item name at others, so this is searched for rather than anchored.
 # The unit may sit before the "@" (Fruitland) or after the price (Pak'nSave's
 # "1 @ $6.99 EA"), so both spots are captured and whichever turns up is used.
-_UNIT = r"(kgs?|g|ea(?:ch)?)"
+# Petrol is sold by the litre, printed "24.310 ltr @ $2.816/ltr". OCR reads
+# that "l" as a "1" about as often as not, so both spellings are allowed.
+# Longest alternatives first, or "l" would match the start of "ltr".
+_UNIT = r"(kgs?|litres?|[l1]trs?|ea(?:ch)?|kg|g|l)"
 # The space after "\$" matters: Google Vision returns words separately, so a
 # price arrives as "$ 7.34" rather than "$7.34".
 _QTY_RE = re.compile(
@@ -113,7 +116,12 @@ _QTY_RE = re.compile(
     re.IGNORECASE,
 )
 
-_UNIT_NAMES = {"kg": "kg", "kgs": "kg", "g": "g", "ea": "ea", "each": "ea"}
+_UNIT_NAMES = {
+    "kg": "kg", "kgs": "kg", "g": "g", "ea": "ea", "each": "ea",
+    "l": "L", "ltr": "L", "ltrs": "L", "litre": "L", "litres": "L",
+    # OCR's usual misreading of "ltr".
+    "1tr": "L", "1trs": "L",
+}
 
 # The "@" is small and often the first thing OCR loses — it comes back as "G",
 # or "1 @" merges into "10", or it vanishes entirely. The quantity can't be
@@ -130,6 +138,13 @@ _PRICE_TAIL_RE = re.compile(
 
 # A run that is only a line marker, such as Pak'nSave's GST asterisk.
 _MARKER_ONLY_RE = re.compile(r"^[\s*\-–—=]+$")
+
+# The address under a shop's name, recognised by the word it ends on.
+_STREET_RE = re.compile(
+    r"\b(road|rd|street|st|avenue|ave|drive|dr|lane|highway|hwy|place|"
+    r"terrace|crescent|cres|way|parade|quay|boulevard|blvd)\b\.?\s*$",
+    re.IGNORECASE,
+)
 
 
 _MONTHS = {
@@ -552,6 +567,11 @@ def _find_store_name(rows):
     def as_name(text):
         if _is_skippable(text):
             return None
+        # A street line beats the real name on length wherever the name is
+        # short — "Halswell Junction Road" over NPD's "NPD Hornby" — so a
+        # candidate ending in a street type is not a candidate.
+        if _STREET_RE.search(text):
+            return None
         # Keep the leading run of letters and light punctuation, so a header
         # like "Sunson Asian Food Market =Part Wigram" still yields a name.
         # Requiring it to *start* with letters rejects section rules
@@ -581,6 +601,41 @@ def _find_store_name(rows):
     return None
 
 
+def _apply_quantity_below(item, text):
+    """Fill in a quantity printed on the line *under* its amount, the shape
+    fuel pumps use. Returns whether the line was one.
+
+        7  Regular              $68.45
+           24.310 ltr @ $2.816/ltr
+
+    The row above already carried the amount, so it was read as a single
+    item at $68.45. This turns it back into a measured quantity.
+    """
+    match = _QTY_RE.search(text)
+    if not match:
+        return False
+    try:
+        quantity = _to_float(match.group(1))
+        unit_price = _to_float(match.group(3))
+    except ValueError:
+        return False
+
+    item["quantity"] = quantity
+    item["unit_price"] = unit_price
+    raw_unit = match.group(2) or match.group(4)
+    if raw_unit:
+        item["unit"] = _UNIT_NAMES.get(raw_unit.lower())
+
+    # A figure ahead of the name on a line like this is the pump or lane
+    # number, not a count — the quantity just read is the real one, so the
+    # leading digits are noise. Only safe here, where that is what they are.
+    stripped = re.sub(r"^\d{1,2}\s+", "", item["name"])
+    if stripped:
+        item["name"] = stripped
+        item["category"] = _guess_category(stripped)
+    return True
+
+
 def _parse_items(rows):
     items = []
     pending_name = None  # An item name whose price is on the following row.
@@ -594,6 +649,15 @@ def _parse_items(rows):
             break
 
         if price is None:
+            # A quantity belonging to the item above. Only when nothing is
+            # pending: a pending name means this row is the quantity for the
+            # item *below*, which the shops that print the name on its own
+            # line do, and that row carries its own amount anyway.
+            if items and pending_name is None and _apply_quantity_below(
+                items[-1], text
+            ):
+                continue
+
             # A bare line with no amount — most likely an item name whose
             # weight and price land on the next row.
             if text and not _is_skippable(text):

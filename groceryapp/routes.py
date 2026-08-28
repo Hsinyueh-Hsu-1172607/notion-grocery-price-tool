@@ -12,7 +12,7 @@ ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 # For spending that doesn't come off a supermarket receipt. Kept separate
 # from ocr.CATEGORIES, which describes what's *in* a grocery bag.
 # Offered on the review screen; blank stays blank when a receipt gives no unit.
-UNITS = ["", "ea", "kg", "g"]
+UNITS = ["", "ea", "kg", "g", "L"]
 
 EXPENSE_CATEGORIES = [
     "Groceries", "Dining Out", "Transport", "Rent", "Utilities",
