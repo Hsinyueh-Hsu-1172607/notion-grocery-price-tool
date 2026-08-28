@@ -36,11 +36,14 @@ CATEGORIES = [
 # Order matters: the first category with a matching keyword wins, so keep
 # narrower produce terms ahead of anything they might also appear in.
 _CATEGORY_KEYWORDS = {
-    "Fruit": ["apple", "banana", "avocado", "grape", "orange", "lemon",
+    # Avocado sits under vegetables: botanically a fruit, but it's bought and
+    # eaten as a vegetable, and these categories are for how you shop.
+    "Fruit": ["apple", "banana", "grape", "orange", "lemon",
               "lime", "mandarin", "kiwifruit", "pear", "peach", "nectarine",
               "plum", "berry", "berries", "melon", "pineapple", "mango",
               "cherry", "apricot", "feijoa", "tamarillo"],
-    "Vegetables": ["potato", "onion", "tomato", "lettuce", "carrot", "kumara",
+    "Vegetables": ["avocado", "potato", "onion", "tomato", "lettuce",
+                   "carrot", "kumara",
                    "capsicum", "broccoli", "broccoii", "spinach", "garlic",
                    "mushroom", "cucumber", "cabbage", "cauliflower",
                    "courgette", "zucchini", "pumpkin", "celery", "leek",
