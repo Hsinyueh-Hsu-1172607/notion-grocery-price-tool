@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Grocery Price Tool{% endblock %}
 {% block content %}
-  <p class="eyebrow">Receipts in, prices out</p>
-  <h1>Know what you paid,<br>and where.</h1>
+  <p class="eyebrow">Your receipts, remembered</p>
+  <h1>What did you pay<br>last time?</h1>
   <p class="lede">Scan a supermarket receipt and every line item lands in your
-     Notion database — item, store, unit price, date. Then look up what the
-     same thing cost at a different shop, or check what you've spent today.</p>
+     Notion database — item, store, unit price, date. Later you can look up
+     what you paid for something before, or check what you've spent today.</p>
 
   <ul class="actions">
     <li>
@@ -28,8 +28,8 @@
     </li>
     <li>
       <a href="{{ url_for('compare') }}">
-        <span class="title">Compare prices</span>
-        <span class="desc">Every store you've bought an item from, cheapest first</span>
+        <span class="title">Price history</span>
+        <span class="desc">What you paid for something last time, and every time before</span>
       </a>
     </li>
     <li>

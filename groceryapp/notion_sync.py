@@ -120,8 +120,11 @@ def _as_row(page):
 
 
 def query_item_history(query_text):
-    """Search the Notion database for items matching query_text, sorted by
-    unit price ascending (cheapest first) so it reads as a price comparison.
+    """Every past purchase whose item name contains query_text.
+
+    Sorted by unit price ascending, so the least you have ever paid for the
+    thing is the first line — the figure worth remembering next time it is
+    on the shelf.
     """
     rows = [
         _as_row(page)

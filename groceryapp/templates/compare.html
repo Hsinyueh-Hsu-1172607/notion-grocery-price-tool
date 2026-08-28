@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Compare Prices · Grocery Price Tool{% endblock %}
+{% block title %}Price History · Grocery Price Tool{% endblock %}
 {% block content %}
   <p class="eyebrow">Cheapest first</p>
-  <h1>Compare prices</h1>
-  <p class="lede">Search an item you've bought before to see every store it
-     came from, ordered by unit price.</p>
+  <h1>Price history</h1>
+  <p class="lede">Search something you've bought before to see what you paid
+     each time, where, and when. The lowest you've paid sits at the top.</p>
 
   <form method="get" class="search-form">
     <input type="text" name="q" placeholder="e.g. milk, kiwifruit…" value="{{ query }}">
@@ -38,7 +38,7 @@
         </table>
       </div>
     {% else %}
-      <p class="lede">No records in Notion matching "{{ query }}".</p>
+      <p class="lede">You have no recorded purchases matching "{{ query }}".</p>
     {% endif %}
   {% endif %}
 {% endblock %}
