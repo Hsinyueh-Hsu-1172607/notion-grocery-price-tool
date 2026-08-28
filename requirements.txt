@@ -2,9 +2,16 @@ Flask==3.1.0
 python-dotenv==1.0.1
 notion-client==2.2.1
 
-# Preferred OCR engine on macOS (Apple's Vision framework)
+# Preferred OCR engine on macOS (Apple's Vision framework). Marked darwin-only
+# so a Linux host does not try to build it.
 pyobjc-framework-Vision==12.2.2; sys_platform == "darwin"
 pyobjc-framework-Quartz==12.2.2; sys_platform == "darwin"
+
+# Calls Google Cloud Vision, which is the engine that runs once this is hosted
+# off a Mac. Not optional there: without it the first scan raises
+# ModuleNotFoundError. httpx rather than urllib because it bundles certifi,
+# and python.org Python has no root certificates of its own.
+httpx==0.28.1
 
 # Fallback OCR engine, used when Vision is unavailable
 pytesseract==0.3.13
