@@ -148,6 +148,17 @@ def _period_range(period, on):
     return on.replace(day=1), on.replace(day=last_day)
 
 
+# Which column the detail table can be sorted on. Every key copes with a
+# missing value, since a row typed in by hand may have no store or category.
+_SPENDING_SORTS = {
+    "date": lambda row: row["purchase_date"] or "",
+    "item": lambda row: (row["item_name"] or "").lower(),
+    "store": lambda row: (row["store_name"] or "").lower(),
+    "category": lambda row: (row["category"] or "").lower(),
+    "amount": lambda row: row["line_total"] or 0,
+}
+
+
 @app.route("/spending")
 def spending():
     period = "day" if request.args.get("period") == "day" else "month"
@@ -160,10 +171,21 @@ def spending():
     except (ValueError, IndexError):
         on = date.today()
 
+    sort = request.args.get("sort", "date")
+    if sort not in _SPENDING_SORTS:
+        sort = "date"
+    order = "asc" if request.args.get("order") == "asc" else "desc"
+
     start, end = _period_range(period, on)
     rows = notion_sync.query_spending(start.isoformat(), end.isoformat())
 
     total = sum(row["line_total"] or 0 for row in rows)
+
+    # Sorted newest first, then by the chosen column. Python's sort is stable,
+    # so rows sharing a category still come out in date order underneath it.
+    rows.sort(key=_SPENDING_SORTS["date"], reverse=True)
+    if sort != "date" or order == "asc":
+        rows.sort(key=_SPENDING_SORTS[sort], reverse=(order == "desc"))
 
     by_category = {}
     for row in rows:
@@ -180,6 +202,8 @@ def spending():
         rows=rows,
         total=total,
         by_category=by_category,
+        sort=sort,
+        order=order,
         notion_url=_notion_database_url(),
     )
 

@@ -287,8 +287,47 @@ a:hover { color: var(--teal-hover); }
   font-weight: 600;
 }
 
+/* Type selector included so this beats ".data-table th"'s left alignment —
+   a right-aligned column needs its heading over the digits, not out to the
+   left of them. */
+.data-table th.numeric { text-align: right; }
+
 .numeric { text-align: right; font-variant-numeric: tabular-nums; }
 .nowrap { white-space: nowrap; }
+
+.category-table th:first-child,
+.category-table td:first-child { width: 32%; }
+.category-table .numeric { width: 22%; }
+.category-table .share-col { width: 46%; }
+
+/* Sortable column headings. */
+.sort-link {
+  display: inline-block;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sort-link:hover { color: var(--ink); }
+.sort-link.active { color: var(--ink); }
+
+/* Always rendered, hidden until the column is the one in use, so switching
+   sort does not shift the headings sideways. */
+.sort-link .caret {
+  margin-left: 0.35rem;
+  font-size: 0.7em;
+  visibility: hidden;
+}
+
+.sort-link.active .caret { visibility: visible; }
+.sort-link:hover .caret { visibility: visible; opacity: 0.45; }
+.sort-link.active:hover .caret { opacity: 1; }
+
+.table-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
 
 /* ---------- buttons & controls ---------- */
 
@@ -390,15 +429,47 @@ input:focus, select:focus, button:focus-visible {
 .toggle a:hover { background: var(--surface-2); }
 .toggle a.active { background: var(--ink); color: var(--paper); }
 
-.bar {
+/* Every bar is drawn inside a track of the same width, so the lengths can be
+   read against each other rather than against the edge of the cell. */
+.bar-track {
   display: inline-block;
+  width: calc(100% - 4.5rem);
+  max-width: 22rem;
   height: 0.55rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.bar {
+  display: block;
+  height: 100%;
   background: var(--teal);
   opacity: 0.45;
   border-radius: var(--radius-full);
-  margin-right: 0.45rem;
-  vertical-align: middle;
   min-width: 2px;
+}
+
+.share-pct {
+  display: inline-block;
+  width: 3.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  vertical-align: middle;
+}
+
+/* On a phone the share column is too narrow for a bar to say anything, and a
+   squeezed one pushes the percentage onto its own line. Drop to the figure. */
+@media (max-width: 40rem) {
+  .bar-track { display: none; }
+  .share-pct { width: auto; }
+
+  .category-table th:first-child,
+  .category-table td:first-child,
+  .category-table .numeric,
+  .category-table .share-col { width: auto; }
 }
 
 /* ---------- camera panel ---------- */

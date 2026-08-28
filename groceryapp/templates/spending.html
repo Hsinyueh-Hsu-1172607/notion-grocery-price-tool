@@ -40,19 +40,30 @@
 
   {% if by_category %}
     <h2>By category</h2>
+    <p class="table-note">
+      What this {{ 'day' if period == 'day' else 'month' }}&rsquo;s
+      ${{ "%.2f"|format(total) }} was spent on.
+    </p>
     <div class="table-wrap">
-      <table class="data-table">
+      <table class="data-table category-table">
         <thead>
-          <tr><th>Category</th><th class="numeric">Amount</th><th>Share</th></tr>
+          <tr>
+            <th>Category</th>
+            <th class="numeric">Total spent</th>
+            <th class="share-col">Share</th>
+          </tr>
         </thead>
         <tbody>
           {% for name, amount in by_category %}
+            {% set pct = (amount / total * 100) if total else 0 %}
             <tr>
               <td>{{ name }}</td>
               <td class="numeric">${{ "%.2f"|format(amount) }}</td>
-              <td>
-                <span class="bar" style="width: {{ (amount / total * 100)|round(1) if total else 0 }}%"></span>
-                {{ ((amount / total * 100)|round(1)) if total else 0 }}%
+              <td class="share-col">
+                <span class="bar-track">
+                  <span class="bar" style="width: {{ pct|round(1) }}%"></span>
+                </span>
+                <span class="share-pct">{{ pct|round(1) }}%</span>
               </td>
             </tr>
           {% endfor %}
@@ -60,13 +71,42 @@
       </table>
     </div>
 
+    {# The date input needs the whole day, the month input only the month. #}
+    {% set on_param = on.isoformat() if period == 'day' else on.strftime('%Y-%m') %}
+    {# A fresh column starts in the direction that reads most naturally:
+       biggest spend first, but names from A. #}
+    {% set natural = {'date': 'desc', 'item': 'asc', 'store': 'asc',
+                      'category': 'asc', 'amount': 'desc'} %}
+
+    {% macro sort_th(key, label, numeric=false) %}
+      {% if sort == key %}
+        {% set next_order = 'asc' if order == 'desc' else 'desc' %}
+      {% else %}
+        {% set next_order = natural[key] %}
+      {% endif %}
+      {# The column in use shows the order you are looking at; the others show
+         what one click would give you, which only surfaces on hover. #}
+      {% set shown = order if sort == key else next_order %}
+      <th class="{{ 'numeric' if numeric }}">
+        <a class="sort-link {{ 'active' if sort == key }}"
+           href="{{ url_for('spending', period=period, on=on_param,
+                            sort=key, order=next_order) }}">
+          {{ label }}<span class="caret">{{ '▲' if shown == 'asc' else '▼' }}</span>
+        </a>
+      </th>
+    {% endmacro %}
+
     <h2>Detail</h2>
+    <p class="table-note">Click a column heading to sort.</p>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Date</th><th>Item</th><th>Store</th><th>Category</th>
-            <th class="numeric">Amount</th>
+            {{ sort_th('date', 'Date') }}
+            {{ sort_th('item', 'Item') }}
+            {{ sort_th('store', 'Store') }}
+            {{ sort_th('category', 'Category') }}
+            {{ sort_th('amount', 'Amount', numeric=true) }}
           </tr>
         </thead>
         <tbody>
