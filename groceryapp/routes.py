@@ -11,6 +11,9 @@ ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 
 # For spending that doesn't come off a supermarket receipt. Kept separate
 # from ocr.CATEGORIES, which describes what's *in* a grocery bag.
+# Offered on the review screen; blank stays blank when a receipt gives no unit.
+UNITS = ["", "ea", "kg", "g"]
+
 EXPENSE_CATEGORIES = [
     "Groceries", "Dining Out", "Transport", "Rent", "Utilities",
     "Phone & Internet", "Health", "Education", "Household", "Clothing",
@@ -60,15 +63,71 @@ def upload():
             error="Couldn't read anything from this receipt. Try a clearer, better-lit photo.",
         )
 
+    # Nothing is written yet. OCR gets a few things wrong on most receipts —
+    # a misread "@" leaves debris in a name, a category is guessed from
+    # keywords — and fixing those here is far easier than hunting the rows
+    # down in Notion afterwards.
+    return render_template(
+        "review.html",
+        store_name=parsed.get("store_name") or "",
+        purchase_date=parsed.get("purchase_date") or "",
+        items=parsed["items"],
+        categories=ocr.CATEGORIES,
+        units=UNITS,
+    )
+
+
+def _as_number(raw):
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+@app.route("/confirm", methods=["POST"])
+def confirm():
+    """Write the reviewed rows to Notion. Only the ticked ones."""
+    store_name = request.form.get("store_name", "").strip()
+    purchase_date = request.form.get("purchase_date", "").strip()
+
+    names = request.form.getlist("item_name")
+    categories = request.form.getlist("item_category")
+    quantities = request.form.getlist("item_quantity")
+    item_units = request.form.getlist("item_unit")
+    unit_prices = request.form.getlist("item_unit_price")
+    line_totals = request.form.getlist("item_line_total")
+
+    # Unchecked boxes aren't submitted at all, so each carries its row index.
+    keep = {int(i) for i in request.form.getlist("include") if i.isdigit()}
+
+    items = []
+    for i, name in enumerate(names):
+        if i not in keep or not name.strip():
+            continue
+        items.append({
+            "name": name.strip(),
+            "category": categories[i] if i < len(categories) else None,
+            "quantity": _as_number(quantities[i]) if i < len(quantities) else None,
+            "unit": (item_units[i] or None) if i < len(item_units) else None,
+            "unit_price": _as_number(unit_prices[i]) if i < len(unit_prices) else None,
+            "line_total": _as_number(line_totals[i]) if i < len(line_totals) else None,
+        })
+
+    if not items:
+        return render_template(
+            "upload.html",
+            error="Nothing was ticked, so nothing was saved.",
+        )
+
     count = notion_sync.add_purchase_items(
-        parsed["items"], parsed.get("store_name"), parsed.get("purchase_date"),
+        items, store_name or None, purchase_date or None
     )
 
     return render_template(
         "upload_result.html",
-        store_name=parsed.get("store_name"),
-        purchase_date=parsed.get("purchase_date"),
-        items=parsed["items"],
+        store_name=store_name,
+        purchase_date=purchase_date,
+        items=items,
         count=count,
         notion_url=_notion_database_url(),
     )
