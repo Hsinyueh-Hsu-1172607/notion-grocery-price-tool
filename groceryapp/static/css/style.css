@@ -142,6 +142,26 @@ a:hover { color: var(--teal-hover); }
   color: var(--paper);
 }
 
+/* Sign out is housekeeping, not one of the five places you go. */
+.nav a.nav-quiet {
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+
+.login-form {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 22rem;
+  margin-top: var(--space-5);
+}
+
+.login-form label {
+  font-size: var(--step--1);
+  font-weight: 600;
+}
+
+.login-form button { justify-self: start; }
+
 /* ---------- layout ---------- */
 
 .container {

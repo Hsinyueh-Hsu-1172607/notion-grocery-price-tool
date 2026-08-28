@@ -55,10 +55,23 @@ NOTION_API_KEY=...
 NOTION_DATABASE_ID=...
 GOOGLE_VISION_API_KEY=...
 FLASK_SECRET_KEY=...
+APP_PASSWORD_HASH=...
 ```
 
 `NOTION_PARENT_PAGE_ID` is only needed by `setup_notion.py`, which you
 already ran locally — the hosted app doesn't use it.
+
+**`APP_PASSWORD_HASH` is not optional here.** A PythonAnywhere URL is public
+and guessable, and without a password anyone who visits can read what you have
+bought and write to your Notion database. Generate the hash locally:
+
+```bash
+python set_password.py
+```
+
+and paste the line it prints. `FLASK_SECRET_KEY` must be a real random string
+on the server too — it signs the session cookie, so a guessable one lets
+someone forge a signed-in session without the password.
 
 ## 4. Point the web app at the code
 

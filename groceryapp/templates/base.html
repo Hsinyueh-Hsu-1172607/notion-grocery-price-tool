@@ -16,6 +16,8 @@
       <span class="brand-title">Grocery Price Comparison Tool</span>
     </a>
     <p class="tagline">Notion Powered</p>
+    {# Signed out there is only one place to go, so the nav is just noise. #}
+    {% if session.get('signed_in') %}
     <nav class="nav">
       {% set page = request.endpoint %}
       <a href="{{ url_for('index') }}"
@@ -28,7 +30,9 @@
          class="{% if page == 'expense' %}active{% endif %}">Add Expense</a>
       <a href="{{ url_for('compare') }}"
          class="{% if page == 'compare' %}active{% endif %}">Price History</a>
+      <a class="nav-quiet" href="{{ url_for('logout') }}">Sign out</a>
     </nav>
+    {% endif %}
   </header>
   <main class="container">
     {% block content %}{% endblock %}

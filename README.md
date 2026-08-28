@@ -12,11 +12,12 @@ before the price crept up. That's your own receipts, and nobody else has them.
 
 Take a photo on your phone (or upload one from your computer). OCR reads the
 text off the receipt, layout-aware parsing pulls out the store, date, line
-items and prices, and each item becomes a new row in a Notion database via
-the [Notion API](https://developers.notion.com/). Notion itself is the only
-datastore and the only place you review or correct results — there's no
-separate dashboard to maintain, and the same records open in the Notion app
-on your phone.
+items and prices, you check the result on screen, and each item becomes a new
+row in a Notion database via the [Notion API](https://developers.notion.com/).
+Notion is the only datastore — there's no second database to keep in step,
+and the same records open in the Notion app on your phone.
+
+![The home page](docs/screenshots/home.png)
 
 ## Why build this this way?
 
@@ -26,17 +27,29 @@ database and custom dashboard pages. This project asks a different question:
 what if Notion itself — its filtering, sorting, and grouping — *is* the
 dashboard? Every scanned item becomes a page in a Notion database, so
 "everything I've bought called milk" is a filter, and the history is
-readable in the Notion app without this app running at all. It also means
-there's no in-app edit screen: if OCR misreads something, you fix it
-straight in Notion, since that's already a very good spreadsheet-like editor.
+readable in the Notion app without this app running at all.
+
+## Nothing is saved until you say so
+
+OCR gets something wrong on most receipts, and hunting those mistakes down in
+Notion afterwards is worse than fixing them while the receipt is still in your
+hand. So a scan lands on a check screen first: every field is editable, each
+row can be dropped, and nothing is written until you press save.
+
+![The check-before-saving screen](docs/screenshots/review.png)
 
 ## How the OCR works
 
 `groceryapp/ocr.py` (shared with the receipt-tracker project) picks between
-two engines, both free and fully local:
+three engines, in preference order:
 
-1. **macOS Vision** — the framework behind Live Text. Used when available.
-2. **Tesseract** — the fallback, so the project still runs off a Mac.
+1. **macOS Vision** — the framework behind Live Text. Free, local, and the
+   most accurate of the three. Used whenever it's available.
+2. **Google Cloud Vision** — used when `GOOGLE_VISION_API_KEY` is set, which
+   is what runs when the app is hosted on Linux and Apple's framework isn't
+   there.
+3. **Tesseract** — a last resort needing no key and no network, but it misses
+   most prices on a real receipt.
 
 The gap between them is not small. On a real phone photo of a curved
 thermal receipt, Tesseract read the item names but **not a single price**;
@@ -74,18 +87,25 @@ Two details that cost real debugging time, both worth knowing about:
 - OCR can split a number across a space (`$8. 99`), so numeric parsing has to
   tolerate that rather than stopping at the first space.
 
-Category assignment is still just a keyword dictionary (`"milk"` → Dairy &
-Eggs), with no real language understanding behind it, so unusual products
-land in `Other` and are worth correcting in Notion.
+A third detail worth knowing: receipts print things beside the price that
+aren't the price. Pak'nSave marks GST-applicable lines with `*`, New World
+prints a single-letter tax code (`$3.99 C`), and a pattern that insisted the
+amount ended the line silently dropped those items altogether.
+
+Category assignment is a keyword dictionary (`"milk"` → Dairy & Eggs) with no
+real language understanding behind it, so unusual products land in `Other`.
+One category is decided by the shop instead: a fuel pump prints its grade as
+`Regular`, and "regular" turns up in enough grocery names that a keyword would
+misfile them, so the grade names count only on a receipt from a fuel retailer.
 
 ## Features
 
 - **Scan a receipt** — on mobile, the file input opens the camera directly;
   on desktop, pick a file or capture a frame from the webcam.
-- **Automatic logging** — each line item is written to Notion as its own
-  row: item, store, category, quantity, unit, unit price, line total, date.
+- **Check before saving** — correct anything OCR got wrong, drop rows you
+  don't want, then write the lot to Notion in one go.
 - **Spending** — total spent today or this month, split by category, with
-  the entries behind it.
+  the entries behind it sortable by any column.
 - **Manual expenses** — record spending that never had a supermarket
   receipt (rent, transport, a meal out) into the same database, so the
   totals cover everything.
@@ -93,9 +113,25 @@ land in `Other` and are worth correcting in Notion.
   it: what you paid, where, and when. Sorted cheapest first, so the lowest
   you've ever paid is the line to beat.
 
+![Spending, by category and in detail](docs/screenshots/spending.png)
+
+![Price history for one item](docs/screenshots/price-history.png)
+
 Because Notion holds the data, the same records are readable from the
 Notion app on your phone — which is what you actually want standing in a
 supermarket aisle, with the laptop at home.
+
+## Signing in
+
+The app holds one person's shopping record and carries the Notion credentials
+that can write to it, so it is locked behind a password. There is no sign-up
+and no user table: one password, checked against a hash in the environment.
+
+The guard is a `before_request` hook rather than a decorator on each route, so
+a page added later is protected by default instead of protected only if
+someone remembers to decorate it.
+
+![The sign-in page](docs/screenshots/login.png)
 
 ## Getting this running
 
@@ -145,7 +181,17 @@ supermarket aisle, with the laptop at home.
    This creates a "Grocery Prices" database under your parent page and
    prints its ID. Paste that into `.env` as `NOTION_DATABASE_ID`.
 
-6. **Run it**
+6. **Set a password**
+
+   ```bash
+   python set_password.py
+   ```
+
+   Type a password twice and paste the `APP_PASSWORD_HASH=` line it prints
+   into `.env`. Only the hash is stored, never the password. Without this the
+   app refuses every login rather than letting anyone in.
+
+7. **Run it**
 
    ```bash
    python run.py
@@ -161,21 +207,28 @@ supermarket aisle, with the laptop at home.
 
 ```
 groceryapp/
-├── __init__.py     # creates the Flask app, loads .env
-├── ocr.py           # Vision/Tesseract OCR + layout-aware parsing (shared with receipt-tracker)
-├── notion_sync.py    # reads and writes the Notion database
-├── routes.py          # / , /spending , /expense , /upload , /compare
+├── __init__.py             # creates the Flask app, loads .env
+├── auth.py                 # password gate: /login, /logout, before_request guard
+├── ocr.py                  # OCR engines + layout-aware parsing (shared with receipt-tracker)
+├── notion_sync.py          # reads and writes the Notion database
+├── routes.py               # / , /spending , /expense , /upload , /confirm , /compare
 ├── templates/
 └── static/
-setup_notion.py     # one-off: creates the Notion database, prints its ID
+setup_notion.py             # one-off: creates the Notion database, prints its ID
+set_password.py             # prints the APP_PASSWORD_HASH line for .env
+migrate_categories.py       # one-off: re-files rows after a category change
+tidy_item_names.py          # one-off: softens receipt capitals in existing rows
+remove_duplicate_scans.py   # one-off: archives a receipt scanned in twice
 ```
+
+The one-off scripts all print their plan and change nothing without `--apply`.
 
 ## Not in this version
 
-- No in-app editing of a scanned receipt — corrections happen directly in
-  Notion.
 - No receipt photos are kept — the uploaded image is OCR'd from a temp file
   and deleted immediately after.
+- No demo mode. The app reads and writes one personal Notion database, so
+  sharing it with someone means a second database and a second password.
 - No LLM-based extraction. Handing the photo to a vision-capable model would
   likely beat the keyword categoriser and cope better with unusual receipt
   layouts, but it needs an API key and costs money per scan — the whole point
