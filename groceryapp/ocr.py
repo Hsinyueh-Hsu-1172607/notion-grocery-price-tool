@@ -515,7 +515,14 @@ def _find_amount(rows, keyword, exclude=()):
 
 def _find_store_name(rows):
     """Store name sits at the top on most receipts, but at the bottom on some
-    (NZ produce shops in particular), so check the top first and fall back."""
+    (NZ produce shops in particular), so check the top first and fall back.
+
+    Within a group the longest candidate wins. The first line of a receipt is
+    usually the logo, set in stylised type that OCR reliably mangles —
+    "PAK'nSAVE" comes back as "PAKiSAVE", "New World" as "NW NEW WORLD" — and
+    the plain-text name is printed just beneath it. That line is also longer,
+    because it carries the branch: "PAK'nSAVE Hornby", "New World Lincoln".
+    """
     def as_name(text):
         if _is_skippable(text):
             return None
@@ -527,16 +534,24 @@ def _find_store_name(rows):
         if not match:
             return None
         name = match.group(0).strip(" .")
+        # Word-level OCR splits "PAK'nSAVE" into "PAK" and "'nSAVE", and the
+        # space left between them would file the same shop under two names.
+        name = re.sub(r"(?<=[A-Za-z])\s+(?='[A-Za-z])", "", name)
         return name if len(name) >= 3 else None
 
-    for candidate_rows in (rows[:2], rows[-5:]):
+    # Only the first three rows: past that come opening hours and addresses,
+    # whose leading words would otherwise out-length the real name.
+    for candidate_rows in (rows[:3], rows[-5:]):
+        names = []
         for row in candidate_rows:
             text, price = _row_parts(row)
             if price is not None:
                 continue
             name = as_name(text)
             if name:
-                return name
+                names.append(name)
+        if names:
+            return max(names, key=len)
     return None
 
 
