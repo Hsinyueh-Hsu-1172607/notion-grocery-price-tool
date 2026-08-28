@@ -125,10 +125,19 @@ _TRAILING_PRICE_RE = re.compile(rf"\$?\s*(\d+\s*[.,]\s*\d{{2}}){_MARKER}$")
 # that "l" as a "1" about as often as not, so both spellings are allowed.
 # Longest alternatives first, or "l" would match the start of "ltr".
 _UNIT = r"(kgs?|litres?|[l1]trs?|ea(?:ch)?|kg|g|l)"
+
+# The "@" is the smallest mark on the line and OCR loses it constantly — it
+# comes back as a letter ("0.1980 a $9.99", "1 G $6.99"), or vanishes.
+#
+# A letter stands in for it only when it has a space on its left and a price
+# on its right, which is the one position where nothing but an "@" belongs.
+# Both halves are load-bearing: without the space, "PAMS SULTANAS 700G $0.49"
+# reads the "G" as the "@" and the pack size as a quantity of 700.
+_AT = r"(?:@|(?<=\s)[A-Za-z](?=\s*\$))"
 # The space after "\$" matters: Google Vision returns words separately, so a
 # price arrives as "$ 7.34" rather than "$7.34".
 _QTY_RE = re.compile(
-    rf"({_NUMBER})\s*{_UNIT}?\s*@\s*\$?\s*({_NUMBER})\s*/?\s*{_UNIT}?",
+    rf"({_NUMBER})\s*{_UNIT}?\s*{_AT}\s*\$?\s*({_NUMBER})\s*/?\s*{_UNIT}?",
     re.IGNORECASE,
 )
 
@@ -160,8 +169,42 @@ _KEEP_UPPER = {
     "PK", "PKT", "UHT", "BBQ", "XL", "PB", "NO",
 }
 
+# Cyrillic letters whose shapes are identical to Latin ones, mapped back.
+# Only the unambiguous pairs are here — a letter that merely looks similar
+# would do more harm than good.
+_HOMOGLYPHS = str.maketrans({
+    "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O",
+    "Р": "P", "С": "C", "Т": "T", "Х": "X", "У": "Y", "І": "I", "Ј": "J",
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
+    "і": "i", "ј": "j",
+})
+
 # A run that is only a line marker, such as Pak'nSave's GST asterisk.
 _MARKER_ONLY_RE = re.compile(r"^[\s*\-–—=]+$")
+
+# A chain's logo is set in stylised type and OCR mangles it the same few ways
+# every time. Keyed on the letters alone, so spacing and punctuation damage
+# does not matter. Used to put the chain back when a receipt prints only the
+# branch name in plain text ("Moorhouse") under the logo.
+_CHAIN_LOGOS = {
+    "pakisave": "PAK'nSAVE",
+    "paknsave": "PAK'nSAVE",
+    "pakhsave": "PAK'nSAVE",
+    "paksave": "PAK'nSAVE",
+    "nwnewworld": "New World",
+    "newworld": "New World",
+    "countdown": "Countdown",
+    "woolworths": "Woolworths",
+    "freshchoice": "FreshChoice",
+    "foursquare": "Four Square",
+}
+
+
+def _squash(text):
+    """Letters and digits only, lower-cased — for comparing names whose
+    spacing and punctuation OCR may have mangled."""
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
 
 # The address under a shop's name, recognised by the word it ends on.
 _STREET_RE = re.compile(
@@ -390,6 +433,18 @@ def _read_blocks_google(image_path):
     return blocks or None
 
 
+def _normalise(blocks):
+    """Fold look-alike letters back to the Latin ones that were printed.
+
+    OCR returns a Cyrillic letter for a Latin one often enough to matter — the
+    "EA" after a price comes back as "ЕА", New World's tax code "C" as "С" —
+    because the glyphs are identical. Every pattern in this module is ASCII, so
+    left alone these quietly cost a unit or a whole line item. Fixing it once
+    here beats teaching each pattern about it.
+    """
+    return [(text.translate(_HOMOGLYPHS), *rest) for text, *rest in blocks]
+
+
 def _read_blocks(image_path):
     for reader, name in (
         (_read_blocks_vision, "vision"),
@@ -397,8 +452,8 @@ def _read_blocks(image_path):
     ):
         blocks = reader(image_path)
         if blocks:
-            return blocks, name
-    return _read_blocks_tesseract(image_path), "tesseract"
+            return _normalise(blocks), name
+    return _normalise(_read_blocks_tesseract(image_path)), "tesseract"
 
 
 # --------------------------------------------------------------------------
@@ -640,16 +695,34 @@ def _find_store_name(rows):
     # Only the first three rows: past that come opening hours and addresses,
     # whose leading words would otherwise out-length the real name.
     for candidate_rows in (rows[:3], rows[-5:]):
-        names = []
+        names, chain = [], None
         for row in candidate_rows:
             text, price = _row_parts(row)
             if price is not None:
                 continue
+            # The logo row is not a name — it is the chain, however mangled.
+            # Held aside so a short branch line is not out-lengthened by it.
+            logo = _CHAIN_LOGOS.get(_squash(text))
+            if logo:
+                chain = logo
+                continue
             name = as_name(text)
             if name:
                 names.append(name)
-        if names:
-            return max(names, key=len)
+
+        if not names:
+            # A logo and nothing else readable above it.
+            if chain:
+                return chain
+            continue
+
+        best = max(names, key=len)
+        # Some branches print "PAK'nSAVE Hornby" in plain text below the logo
+        # and some print only "Moorhouse". The second kind needs the chain put
+        # back, or two branches of one shop file under unrelated names.
+        if chain and _squash(chain) not in _squash(best):
+            return f"{chain} {best}"
+        return best
     return None
 
 

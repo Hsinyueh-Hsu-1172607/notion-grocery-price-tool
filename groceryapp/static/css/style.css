@@ -368,14 +368,27 @@ button,
 
 button:hover, .button:hover { background: #2c2c2c; color: var(--paper); }
 
-button.secondary {
+/* Written for both, because the pair "do it / don't" is sometimes a button
+   and a link — a submit next to an <a> — and they should still look like two
+   options of the same kind. */
+button.secondary,
+.button.secondary {
   background: transparent;
   color: var(--ink);
   border-color: var(--line-strong);
 }
 
-button.secondary:hover { background: var(--surface-2); color: var(--ink); }
+button.secondary:hover,
+.button.secondary:hover { background: var(--surface-2); color: var(--ink); }
 button.danger { background: var(--danger); border-color: var(--danger); }
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
 
 input, select {
   font-family: inherit;
