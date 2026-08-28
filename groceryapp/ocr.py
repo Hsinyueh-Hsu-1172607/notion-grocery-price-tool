@@ -152,6 +152,14 @@ _PRICE_TAIL_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Short words that are abbreviations rather than words, so title case would
+# make nonsense of them: "Broccoli Ea Nz", "Pams Sultanas 700g". The unit
+# letters are here because they are what a pack size ends on.
+_KEEP_UPPER = {
+    "NZ", "UK", "USA", "AU", "EA", "KG", "G", "L", "ML", "LTR", "GM", "MG",
+    "PK", "PKT", "UHT", "BBQ", "XL", "PB", "NO",
+}
+
 # A run that is only a line marker, such as Pak'nSave's GST asterisk.
 _MARKER_ONLY_RE = re.compile(r"^[\s*\-–—=]+$")
 
@@ -501,6 +509,26 @@ def _row_parts(row):
 # Parsing
 # --------------------------------------------------------------------------
 
+def tidy_case(name):
+    """Turn a receipt's shouting into something readable in a list.
+
+    Only names printed entirely in capitals are touched. A name that already
+    carries lower-case letters is how the shop chose to write it, and is left
+    alone — "Kiwifruit Gold" and "nashi pear" both come through as they were.
+    """
+    if not name or any(c.islower() for c in name):
+        return name
+
+    def fix(match):
+        word = match.group(0)
+        if word.upper() in _KEEP_UPPER:
+            return word.upper()
+        return word[:1].upper() + word[1:].lower()
+
+    # Letter runs only, so "#53", "700G" and "WIDE/THIN" keep their shape.
+    return re.sub(r"[A-Za-z]+", fix, name)
+
+
 def _guess_category(item_name, store_name=None):
     lowered = item_name.lower()
 
@@ -733,6 +761,8 @@ def _parse_items(rows, store_name=None):
         if not name or len(name) < 2:
             pending_name = None
             continue
+
+        name = tidy_case(name)
 
         items.append({
             "name": name,
