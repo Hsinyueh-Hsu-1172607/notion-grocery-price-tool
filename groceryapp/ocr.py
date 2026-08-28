@@ -26,7 +26,7 @@ from datetime import datetime
 CATEGORIES = [
     "Fruit", "Vegetables", "Meat & Seafood", "Dairy & Eggs", "Bakery",
     "Pantry", "Frozen", "Beverages", "Household", "Personal Care",
-    "Snacks & Confectionery", "Other",
+    "Snacks & Confectionery", "Fuel", "Other",
 ]
 
 # Best-effort keyword categorisation — there's no real language understanding
@@ -75,6 +75,22 @@ _CATEGORY_KEYWORDS = {
                "vinegar", "sauce", "stock", "tin", "canned", "honey", "jam",
                "peanut butter", "cereal", "oats", "lentil", "chickpea"],
 }
+
+# Petrol grades are named too plainly to go in the list above — a pump prints
+# "Regular", and "regular" turns up in grocery names often enough that it
+# would misfile them. They are only consulted when the receipt came from a
+# fuel retailer, which is the reliable signal.
+_FUEL_KEYWORDS = [
+    "regular", "premium", "unleaded", "petrol", "diesel", "gasoline",
+    "91", "95", "98", "lpg",
+]
+
+# NZ fuel retailers. Matched on whole words, so "Z" does not fire on every
+# store name that happens to contain the letter.
+_FUEL_STORE_RE = re.compile(
+    r"\b(npd|z|bp|caltex|mobil|gull|waitomo|challenge|allied)\b",
+    re.IGNORECASE,
+)
 
 # Rows that end in something price-shaped but are totals/payment lines,
 # not purchases.
@@ -485,8 +501,16 @@ def _row_parts(row):
 # Parsing
 # --------------------------------------------------------------------------
 
-def _guess_category(item_name):
+def _guess_category(item_name, store_name=None):
     lowered = item_name.lower()
+
+    # Checked ahead of the keyword list, but only at a fuel retailer: a
+    # service station also sells pies and milk, and those should still land in
+    # their own categories, so the grade names alone decide.
+    if store_name and _FUEL_STORE_RE.search(store_name):
+        if any(kw in lowered for kw in _FUEL_KEYWORDS):
+            return "Fuel"
+
     for category, keywords in _CATEGORY_KEYWORDS.items():
         if any(kw in lowered for kw in keywords):
             return category
@@ -601,7 +625,7 @@ def _find_store_name(rows):
     return None
 
 
-def _apply_quantity_below(item, text):
+def _apply_quantity_below(item, text, store_name=None):
     """Fill in a quantity printed on the line *under* its amount, the shape
     fuel pumps use. Returns whether the line was one.
 
@@ -632,11 +656,11 @@ def _apply_quantity_below(item, text):
     stripped = re.sub(r"^\d{1,2}\s+", "", item["name"])
     if stripped:
         item["name"] = stripped
-        item["category"] = _guess_category(stripped)
+        item["category"] = _guess_category(stripped, store_name)
     return True
 
 
-def _parse_items(rows):
+def _parse_items(rows, store_name=None):
     items = []
     pending_name = None  # An item name whose price is on the following row.
 
@@ -654,7 +678,7 @@ def _parse_items(rows):
             # item *below*, which the shops that print the name on its own
             # line do, and that row carries its own amount anyway.
             if items and pending_name is None and _apply_quantity_below(
-                items[-1], text
+                items[-1], text, store_name
             ):
                 continue
 
@@ -716,7 +740,7 @@ def _parse_items(rows):
             "unit": unit,
             "unit_price": unit_price,
             "line_total": price,
-            "category": _guess_category(name),
+            "category": _guess_category(name, store_name),
         })
         pending_name = None
 
@@ -736,11 +760,15 @@ def extract_receipt(image_path):
     if not rows:
         return None, raw_text
 
+    # Found before the items, which need it: what a "Regular" is depends on
+    # whether you bought it at a supermarket or a pump.
+    store_name = _find_store_name(rows)
+
     parsed = {
-        "store_name": _find_store_name(rows),
+        "store_name": store_name,
         "purchase_date": _find_date(rows),
         "currency": "NZD",
-        "items": _parse_items(rows),
+        "items": _parse_items(rows, store_name),
         "subtotal": _find_amount(rows, "subtotal"),
         # "Total including GST" is a total, not a GST amount — don't let it
         # answer for both.

@@ -15,7 +15,7 @@ ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 UNITS = ["", "ea", "kg", "g", "L"]
 
 EXPENSE_CATEGORIES = [
-    "Groceries", "Dining Out", "Transport", "Rent", "Utilities",
+    "Groceries", "Dining Out", "Transport", "Fuel", "Rent", "Utilities",
     "Phone & Internet", "Health", "Education", "Household", "Clothing",
     "Entertainment", "Other",
 ]

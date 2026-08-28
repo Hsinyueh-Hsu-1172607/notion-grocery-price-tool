@@ -44,7 +44,7 @@ def main():
     for page in rows:
         item = notion_sync._as_row(page)
         name = item["item_name"]
-        guess = ocr._guess_category(name)
+        guess = ocr._guess_category(name, item["store_name"])
         # "Other" means the keywords still can't place it — leave the row
         # alone rather than moving it somewhere less accurate than it is.
         if guess in RETIRED or guess == "Other" or guess == item["category"]:
