@@ -21,7 +21,7 @@ from groceryapp import notion_sync, ocr
 load_dotenv()
 
 # Categories no longer offered, so any row still carrying one is stale.
-RETIRED = {"Produce"}
+RETIRED = {"Produce", "Rice & Pasta"}
 
 
 def main():
