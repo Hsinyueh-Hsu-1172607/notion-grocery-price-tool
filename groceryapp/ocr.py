@@ -89,6 +89,19 @@ _QTY_RE = re.compile(
 
 _UNIT_NAMES = {"kg": "kg", "kgs": "kg", "g": "g", "ea": "ea", "each": "ea"}
 
+# The "@" is small and often the first thing OCR loses — it comes back as "G",
+# or "1 @" merges into "10", or it vanishes entirely. The quantity can't be
+# recovered then, but the price tail is still clearly not part of the name.
+#
+# Only the "$…" onwards is removed. Reaching further back to catch the
+# stranded quantity would also eat pack sizes like "PAMS SULTANAS 700G", and
+# losing that is worse than leaving a stray digit: the size is what makes a
+# unit price comparable later.
+_PRICE_TAIL_RE = re.compile(
+    rf"\s*\$\s*{_NUMBER}\s*/?\s*{_UNIT}?\s*=?\s*$",
+    re.IGNORECASE,
+)
+
 # A run that is only a line marker, such as Pak'nSave's GST asterisk.
 _MARKER_ONLY_RE = re.compile(r"^[\s*\-–—=]+$")
 
@@ -583,6 +596,10 @@ def _parse_items(rows):
             # No "@" at all: shops like the Asian grocers print the name on
             # one line and a barcode-and-figures line beneath it.
             name = pending_name
+        else:
+            # The quantity didn't parse — usually a misread "@". Drop the
+            # price tail anyway so it doesn't end up inside the item's name.
+            name = _PRICE_TAIL_RE.sub("", text).strip(" .-*:=") or text
 
         if not name or len(name) < 2:
             pending_name = None
