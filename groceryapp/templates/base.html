@@ -20,16 +20,21 @@
     {% if session.get('signed_in') %}
     <nav class="nav">
       {% set page = request.endpoint %}
+      {# The long half of each label is dropped on a phone, where the nav is
+         otherwise three rows deep before any content shows. #}
       <a href="{{ url_for('index') }}"
          class="{% if page == 'index' %}active{% endif %}">Home</a>
       <a href="{{ url_for('spending') }}"
          class="{% if page == 'spending' %}active{% endif %}">Spending</a>
       <a href="{{ url_for('upload') }}"
-         class="{% if page == 'upload' %}active{% endif %}">Scan Receipt</a>
+         class="{% if page == 'upload' %}active{% endif %}">Scan<span
+         class="nav-long"> Receipt</span></a>
       <a href="{{ url_for('expense') }}"
-         class="{% if page == 'expense' %}active{% endif %}">Add Expense</a>
+         class="{% if page == 'expense' %}active{% endif %}"><span
+         class="nav-long">Add </span>Expense</a>
       <a href="{{ url_for('compare') }}"
-         class="{% if page == 'compare' %}active{% endif %}">Price History</a>
+         class="{% if page == 'compare' %}active{% endif %}"><span
+         class="nav-long">Price </span>History</a>
       <a class="nav-quiet" href="{{ url_for('logout') }}">Sign out</a>
     </nav>
     {% endif %}

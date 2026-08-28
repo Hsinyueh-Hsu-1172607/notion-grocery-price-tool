@@ -38,6 +38,14 @@ row can be dropped, and nothing is written until you press save.
 
 ![The check-before-saving screen](docs/screenshots/review.png)
 
+This is the screen that has to work on a phone, since it is what you look at
+standing in the shop. Seven columns do not fit a 375px window — the prices you
+are meant to be checking end up scrolled off the right-hand side, with nothing
+on screen to say they are there — so on a narrow screen each row becomes a
+card instead, with every field visible and named.
+
+<img src="docs/screenshots/review-mobile.png" alt="The same screen on a phone" width="320">
+
 ## How the OCR works
 
 `groceryapp/ocr.py` (shared with the receipt-tracker project) picks between

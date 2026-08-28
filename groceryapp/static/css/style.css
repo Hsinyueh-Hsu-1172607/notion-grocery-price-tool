@@ -120,6 +120,7 @@ a:hover { color: var(--teal-hover); }
   margin-top: var(--space-5);
 }
 
+
 .nav a {
   padding: 0.55rem 1.15rem;
   border-radius: var(--radius-full);
@@ -579,4 +580,101 @@ label.inline input {
   border-radius: var(--radius);
   border: 1px solid var(--line);
   margin: var(--space-4) 0;
+}
+
+/* ---------- phone ----------
+   Last in the file on purpose: these override the table and nav rules above,
+   and at equal specificity the later rule is the one that wins. */
+
+@media (max-width: 40rem) {
+  /* The masthead was 284px — a third of the screen — before any of the page
+     showed, and over half of that was the nav wrapping onto three rows.
+     Shorter labels and tighter padding bring it to two, the decorative
+     tagline goes, and the top padding halves. The name itself is left alone:
+     it is the one part of the masthead worth the space. */
+  .masthead { padding-top: var(--space-5); }
+  .masthead .tagline { display: none; }
+
+  .nav { margin-top: var(--space-4); gap: 0.35rem; }
+  .nav a { padding: 0.45rem 0.8rem; font-size: var(--step--1); }
+  .nav-long { display: none; }
+
+  /* The check screen is seven columns wide — 924px of table in a 327px
+     window, with the prices you are meant to be checking scrolled off the
+     right-hand side and nothing on screen to say they were there. It is the
+     one screen that has to work on a phone, being what you look at standing
+     in the shop, so each row becomes a card: everything visible at once,
+     every field named, nothing sideways. */
+  .review-table thead { display: none; }
+
+  .review-table,
+  .review-table tbody,
+  .review-table td {
+    display: block;
+    width: auto;
+  }
+
+  .review-table tr {
+    display: grid;
+    /* Quantity pairs with its unit, and unit price with the line total —
+       each pair is one thought, and neither half needs a full row. */
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem var(--space-4);
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .review-table tr:last-child { border-bottom: none; }
+
+  .review-table td {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0;
+    border: none;
+  }
+
+  /* Keep, item and category run the width; the four figures pair up. */
+  .review-table td:nth-child(-n + 3) { grid-column: 1 / -1; }
+
+  .review-table td:nth-child(n + 4) {
+    display: block;
+  }
+
+  .review-table td::before {
+    content: attr(data-label);
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .review-table td:nth-child(-n + 3)::before { flex: 0 0 5rem; }
+
+  .review-table td:nth-child(n + 4)::before {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  /* Figures read from the left here — stacked under their own labels, there
+     is no column of numbers for a right edge to line up against.
+     ".num" is carried on a class, so these selectors have to name a class of
+     their own to outweigh it; ".review-table td input" alone loses. */
+  .review-table td input[type="text"],
+  .review-table td input.num,
+  .review-table td select {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+  }
+
+  /* Flex children do not shrink below their content by default, so a long
+     item name pushed the field past the edge of the card. */
+  .review-table td:nth-child(-n + 3) input[type="text"],
+  .review-table td:nth-child(-n + 3) select {
+    flex: 1 1 auto;
+  }
+
+  .review-table td input[type="checkbox"] { width: auto; }
 }
