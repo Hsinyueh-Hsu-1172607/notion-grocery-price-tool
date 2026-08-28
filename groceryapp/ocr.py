@@ -24,19 +24,33 @@ import re
 from datetime import datetime
 
 CATEGORIES = [
-    "Produce", "Meat & Seafood", "Dairy & Eggs", "Bakery", "Pantry",
-    "Frozen", "Beverages", "Household", "Personal Care",
-    "Snacks & Confectionery", "Other",
+    "Fruit", "Vegetables", "Meat & Seafood", "Dairy & Eggs", "Bakery",
+    "Rice & Pasta", "Pantry", "Frozen", "Beverages", "Household",
+    "Personal Care", "Snacks & Confectionery", "Other",
 ]
 
 # Best-effort keyword categorisation — there's no real language understanding
 # here, so anything not matched falls back to "Other" and should be fixed up
 # afterwards.
+#
+# Order matters: the first category with a matching keyword wins, so keep
+# narrower produce terms ahead of anything they might also appear in.
 _CATEGORY_KEYWORDS = {
-    "Produce": ["apple", "banana", "potato", "onion", "tomato", "lettuce",
-                "carrot", "avocado", "kumara", "capsicum", "broccoli",
-                "broccoii", "spinach", "garlic", "grape", "orange", "lemon",
-                "mushroom", "kiwifruit", "pear", "berry", "melon", "cucumber"],
+    "Fruit": ["apple", "banana", "avocado", "grape", "orange", "lemon",
+              "lime", "mandarin", "kiwifruit", "pear", "peach", "nectarine",
+              "plum", "berry", "berries", "melon", "pineapple", "mango",
+              "cherry", "apricot", "feijoa", "tamarillo"],
+    "Vegetables": ["potato", "onion", "tomato", "lettuce", "carrot", "kumara",
+                   "capsicum", "broccoli", "broccoii", "spinach", "garlic",
+                   "mushroom", "cucumber", "cabbage", "cauliflower",
+                   "courgette", "zucchini", "pumpkin", "celery", "leek",
+                   "beans", "peas", "corn", "silverbeet", "bok choy",
+                   "ginger", "chilli", "radish", "raddish", "beetroot",
+                   "asparagus", "kale", "parsnip", "turnip", "shallot",
+                   "okra", "okr", "eggplant", "aubergine", "sprout"],
+    "Rice & Pasta": ["rice", "pasta", "psta", "spaghetti", "noodle", "macaroni",
+                     "penne", "fettuccine", "lasagne", "lasagna", "vermicelli",
+                     "couscous", "quinoa", "risotto", "udon", "ramen", "soba"],
     "Meat & Seafood": ["chicken", "beef", "lamb", "pork", "mince", "sausage",
                         "bacon", "fish", "salmon", "steak", "ham"],
     "Dairy & Eggs": ["milk", "cheese", "yoghurt", "yogurt", "butter",
@@ -52,6 +66,11 @@ _CATEGORY_KEYWORDS = {
                        "conditioner", "sunscreen"],
     "Snacks & Confectionery": ["chip", "chocolate", "candy", "lolly",
                                 "biscuit", "cracker", "snack"],
+    # Dried fruit keeps with the shelf-stable goods rather than with fresh
+    # fruit, which is where you'd look for it in a supermarket.
+    "Pantry": ["sultana", "raisin", "prune", "flour", "sugar", "oil",
+               "vinegar", "sauce", "stock", "tin", "canned", "honey", "jam",
+               "peanut butter", "cereal", "oats", "lentil", "chickpea"],
 }
 
 # Rows that end in something price-shaped but are totals/payment lines,

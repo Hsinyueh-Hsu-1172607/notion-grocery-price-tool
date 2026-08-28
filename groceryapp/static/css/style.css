@@ -436,10 +436,18 @@ label.inline input {
 /* The review table is all inputs, so it needs to breathe less than a
    read-only one. */
 .review-table td { padding: var(--space-2) var(--space-3); }
-.review-table input[type="text"] { width: 100%; min-width: 12rem; }
-.review-table select { width: 100%; }
-.review-table .num { width: 6rem; text-align: right; }
 .review-table input[type="checkbox"] { width: auto; }
+.review-table .num { width: 5.5rem; text-align: right; }
+
+/* Item names are the field most often needing a fix — OCR leaves debris in
+   them — so the name column takes the slack and everything else is held to
+   what its content needs. */
+.review-table td:nth-child(2) { width: 100%; }
+.review-table input[type="text"] { width: 100%; min-width: 14rem; }
+.review-table select { width: 100%; min-width: 7rem; }
+.review-table td:nth-child(3) { width: 1%; }
+.review-table td:nth-child(3) select { min-width: 9.5rem; }
+.review-table td:nth-child(5) select { min-width: 4.5rem; }
 
 .camera-panel {
   margin-top: var(--space-7);
