@@ -206,13 +206,6 @@ def _squash(text):
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
-# The address under a shop's name, recognised by the word it ends on.
-_STREET_RE = re.compile(
-    r"\b(road|rd|street|st|avenue|ave|drive|dr|lane|highway|hwy|place|"
-    r"terrace|crescent|cres|way|parade|quay|boulevard|blvd)\b\.?\s*$",
-    re.IGNORECASE,
-)
-
 
 _MONTHS = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
@@ -550,7 +543,13 @@ def _row_parts(row):
     # A price sitting in its own run on the right (typical of Vision output).
     match = _PRICE_RE.match(runs[-1]) if len(runs) > 1 else None
     if match:
-        return " ".join(runs[:-1]).strip(), _to_float(match.group(1))
+        left = runs[:-1]
+        # Google Vision returns one run per word, so the currency symbol
+        # arrives separately from its digits: ["2", "Regular", "$", "76.50"].
+        # It belongs to the price that follows it, not to the item's name.
+        if left and left[-1].strip() in {"$", "NZ$"}:
+            left = left[:-1]
+        return " ".join(left).strip(), _to_float(match.group(1))
 
     # Otherwise the whole row may be one run ending in a price.
     joined = " ".join(runs)
@@ -665,19 +664,21 @@ def _find_store_name(rows):
     """Store name sits at the top on most receipts, but at the bottom on some
     (NZ produce shops in particular), so check the top first and fall back.
 
-    Within a group the longest candidate wins. The first line of a receipt is
-    usually the logo, set in stylised type that OCR reliably mangles —
-    "PAK'nSAVE" comes back as "PAKiSAVE", "New World" as "NW NEW WORLD" — and
-    the plain-text name is printed just beneath it. That line is also longer,
-    because it carries the branch: "PAK'nSAVE Hornby", "New World Lincoln".
+    Within a group the first usable line wins, because that is where a receipt
+    puts its name. What sits above it is either nothing or the logo, set in
+    stylised type that OCR reliably mangles ("PAK'nSAVE" comes back as
+    "PAKiSAVE", "New World" as "NW NEW WORLD"), and a mangled logo is
+    recognised and set aside rather than competing.
+
+    Taking the longest line instead is tempting, since the branch name makes
+    the real line longer at the supermarkets. But it reads the address on any
+    receipt whose name is short, and no rule about what an address looks like
+    survives contact with the data: NPD's Stanmore Road branch is called "NPD
+    Stanmore Road", so rejecting lines that end in a street type threw away
+    the answer.
     """
     def as_name(text):
         if _is_skippable(text):
-            return None
-        # A street line beats the real name on length wherever the name is
-        # short — "Halswell Junction Road" over NPD's "NPD Hornby" — so a
-        # candidate ending in a street type is not a candidate.
-        if _STREET_RE.search(text):
             return None
         # Keep the leading run of letters and light punctuation, so a header
         # like "Sunson Asian Food Market =Part Wigram" still yields a name.
@@ -695,28 +696,26 @@ def _find_store_name(rows):
     # Only the first three rows: past that come opening hours and addresses,
     # whose leading words would otherwise out-length the real name.
     for candidate_rows in (rows[:3], rows[-5:]):
-        names, chain = [], None
+        best, chain = None, None
         for row in candidate_rows:
             text, price = _row_parts(row)
             if price is not None:
                 continue
-            # The logo row is not a name — it is the chain, however mangled.
-            # Held aside so a short branch line is not out-lengthened by it.
+            # The logo row is not a name, it is the chain however mangled.
+            # Set aside so the branch line below it is the one that wins.
             logo = _CHAIN_LOGOS.get(_squash(text))
             if logo:
                 chain = logo
                 continue
-            name = as_name(text)
-            if name:
-                names.append(name)
+            if best is None:
+                best = as_name(text)
 
-        if not names:
+        if best is None:
             # A logo and nothing else readable above it.
             if chain:
                 return chain
             continue
 
-        best = max(names, key=len)
         # Some branches print "PAK'nSAVE Hornby" in plain text below the logo
         # and some print only "Moorhouse". The second kind needs the chain put
         # back, or two branches of one shop file under unrelated names.
