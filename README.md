@@ -51,16 +51,16 @@ card instead, with every field visible and named.
 `groceryapp/ocr.py` (shared with the receipt-tracker project) picks between
 three engines, in preference order:
 
-1. **macOS Vision** — the framework behind Live Text. Free, local, and the
-   most accurate of the three. Used whenever it's available.
+1. **macOS Vision** — the framework behind Live Text. Free, offline, and the
+   photo never leaves the machine. Used whenever it's available.
 2. **Google Cloud Vision** — used when `GOOGLE_VISION_API_KEY` is set, which
    is what runs when the app is hosted on Linux and Apple's framework isn't
    there.
 3. **Tesseract** — a last resort needing no key and no network, but it misses
    most prices on a real receipt.
 
-The gap between them is not small. On a real phone photo of a curved
-thermal receipt, Tesseract read the item names but **not a single price**;
+Tesseract is last for a measured reason. On a real phone photo of a curved
+thermal receipt it read the item names but **not a single price**, where
 Vision read every price at full confidence:
 
 | | Tesseract | macOS Vision |
@@ -74,7 +74,24 @@ Preprocessing didn't close that gap — greyscale, upscaling, contrast
 stretching, sharpening, and binarisation all made Tesseract's output *worse*
 on this image, not better.
 
-**Parsing works off layout, not string shape.** Both engines return text
+**The order of the first two is a trade, not a ranking.** I originally had
+Apple's engine first because it won on the supermarket receipts I tested with,
+which print dark on glossy thermal paper. A faint chemist's receipt reversed
+that:
+
+| macOS Vision | Google Cloud Vision |
+|---|---|
+| `SUP HAIK/S/MNE 40 GUA919"` | `SUP HAIR / SKN / NI 40 GUMM` |
+| `SOLGAR S/OTI 5000CG 50` | `SOLGAR BIOTIN 5000HCG 50` |
+| `EXRENESS WER WIRE TRUL 2UM` | `PURENESS WTR WIPE TRVL 20P` |
+
+Both got every price and the total right; the difference is entirely in the
+names. Apple still runs first, because it costs nothing, works with no
+network, and keeps the photo on the machine, and because the check screen
+exists to catch exactly this. But "most accurate" was the wrong way to
+describe it, and one class of receipt was enough to show that.
+
+**Parsing works off layout, not string shape.** All three engines return text
 along with where it sits on the page, so the parser groups text into visual
 rows by vertical position, then reads the rightmost price-shaped run in each
 row as the amount and whatever is to its left as the item. This handles the
@@ -99,6 +116,15 @@ A third detail worth knowing: receipts print things beside the price that
 aren't the price. Pak'nSave marks GST-applicable lines with `*`, New World
 prints a single-letter tax code (`$3.99 C`), and a pattern that insisted the
 amount ended the line silently dropped those items altogether.
+
+**Where the quantity sits is not settled either.** Supermarkets print it
+mid-line against an `@`; fuel pumps print the amount beside the grade and the
+litres on the line below; Chemist Warehouse prints a count down the left-hand
+side with no `@` anywhere. That last one is decided across the whole receipt
+rather than line by line, because a single leading digit is not evidence.
+Plenty of products begin with one, and turning "2 Minute Noodles" into two
+packets of "Minute Noodles" is worse than leaving a stray digit alone. A
+column shows up on most of the lines at once, and that is the testable thing.
 
 Category assignment is a keyword dictionary (`"milk"` → Dairy & Eggs) with no
 real language understanding behind it, so unusual products land in `Other`.

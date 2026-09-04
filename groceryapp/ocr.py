@@ -2,11 +2,18 @@
 
 Three OCR engines, in preference order:
 
-1. macOS Vision (the engine behind Live Text). Free, local, and very accurate
-   on real phone photos of curved thermal receipts — in testing it read every
-   price at full confidence where Tesseract read none. macOS only.
+1. macOS Vision (the engine behind Live Text). Free, offline, and the photo
+   never leaves the machine. macOS only.
 2. Google Cloud Vision, when GOOGLE_VISION_API_KEY is set. This is what runs
    when the app is hosted on Linux, where Apple's framework is unavailable.
+
+   The order between these two is a trade rather than a ranking. Apple wins
+   on the dark, glossy supermarket receipts this was built against, but on a
+   faint chemist's receipt Google read "SOLGAR BIOTIN 5000HCG 50" where Apple
+   read "SOLGAR S/OTI 5000CG 50". Both got every price right; the difference
+   was in the names. Apple stays first for costing nothing, needing no
+   network, and keeping the image local, with the check screen there to catch
+   what it garbles.
 3. Tesseract, as a last resort. It needs no key and no network, but on real
    receipts it misses most of the prices, so results need heavy correction.
 
