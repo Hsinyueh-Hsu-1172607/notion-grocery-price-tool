@@ -7,7 +7,12 @@ from flask import redirect, render_template, request, url_for
 
 from groceryapp import app, notion_sync, ocr
 
-ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+# heic/heif are here because that is what an iPhone photographs in. The
+# browser usually converts to JPEG on upload, but picking an original file off
+# the phone hands over the .heic itself, and being told the photo you just
+# took is the wrong kind of file is a poor answer. pillow-heif lets the hosted
+# engines read them; macOS Vision already could.
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "heic", "heif"}
 
 # For spending that doesn't come off a supermarket receipt. Kept separate
 # from ocr.CATEGORIES, which describes what's *in* a grocery bag.
@@ -44,7 +49,7 @@ def upload():
     if not photo or photo.filename == "" or not _allowed(photo.filename):
         return render_template(
             "upload.html",
-            error="Please choose a jpg/png/webp receipt photo.",
+            error="Please choose a photo of a receipt (jpg, png, webp or heic).",
         )
 
     ext = photo.filename.rsplit(".", 1)[-1].lower()

@@ -298,10 +298,9 @@ def _read_blocks_vision(image_path):
 def _read_blocks_tesseract(image_path):
     """Tesseract fallback, using word boxes so we keep the same geometry."""
     import pytesseract
-    from PIL import Image, ImageOps
     from pytesseract import Output
 
-    image = ImageOps.exif_transpose(Image.open(image_path))
+    image = _open_upright(image_path)
     width, height = image.size
     data = pytesseract.image_to_data(image, output_type=Output.DICT)
 
@@ -348,14 +347,13 @@ def _read_blocks_google(image_path):
         return None
 
     import httpx
-    from PIL import Image, ImageOps
 
     # Google reads the stored pixels and ignores the EXIF orientation a phone
     # camera writes, so a rotated photo comes back with its coordinates on a
     # sideways page — words in a line share an x instead of a y, and the row
     # grouping below falls apart. Rotate it upright before sending, rather
     # than trying to undo eight possible orientations afterwards.
-    upright = ImageOps.exif_transpose(Image.open(image_path))
+    upright = _open_upright(image_path)
     if upright.mode != "RGB":
         upright = upright.convert("RGB")
 
@@ -424,6 +422,32 @@ def _read_blocks_google(image_path):
                         angle,
                     ))
     return blocks or None
+
+
+def _open_upright(image_path):
+    """Open an image with Pillow, the right way up, whatever format it is.
+
+    An iPhone photographs in HEIC, and Pillow cannot read that on its own —
+    an untouched .heic straight off a phone raises UnidentifiedImageError.
+    It rarely bites in the browser, which converts to JPEG on upload, but it
+    does the moment someone picks the original file. macOS Vision reads HEIC
+    natively, so this only ever fails on the engines used when hosted.
+
+    Registering the opener is idempotent and cheap, so it happens here rather
+    than at import, keeping pillow-heif optional for anyone running without it.
+    """
+    from PIL import Image, ImageOps
+
+    try:
+        import pillow_heif
+        pillow_heif.register_heif_opener()
+    except ImportError:
+        pass
+
+    # Phones write the orientation as EXIF metadata rather than rotating the
+    # pixels, and neither OCR engine applies it. Left as is, the text comes
+    # back sideways and the row grouping collapses.
+    return ImageOps.exif_transpose(Image.open(image_path))
 
 
 def _normalise(blocks):

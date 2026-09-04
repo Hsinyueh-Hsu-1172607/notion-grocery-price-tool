@@ -16,3 +16,9 @@ httpx==0.28.1
 # Fallback OCR engine, used when Vision is unavailable
 pytesseract==0.3.13
 Pillow==11.1.0
+
+# Lets Pillow read HEIC, which is what an iPhone photographs in. The browser
+# converts to JPEG on upload so this is not hit often, but picking an original
+# file off the phone otherwise raises UnidentifiedImageError. macOS Vision
+# reads HEIC natively, so only the hosted engines need this.
+pillow-heif==0.21.0
