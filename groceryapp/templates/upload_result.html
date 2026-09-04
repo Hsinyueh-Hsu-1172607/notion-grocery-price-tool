@@ -9,7 +9,7 @@
   </p>
 
   <div class="table-wrap">
-    <table class="data-table">
+    <table class="data-table card-rows">
       <thead>
         <tr>
           <th>Item</th><th>Category</th><th class="numeric">Qty</th>
@@ -18,13 +18,15 @@
       </thead>
       <tbody>
         {% for item in items %}
+          {# data-label carries each heading into the cell, for the phone
+             layout where the heading row is gone and rows become cards. #}
           <tr>
-            <td>{{ item.name }}</td>
-            <td>{{ item.category }}</td>
-            <td class="numeric">
+            <td data-label="Item">{{ item.name }}</td>
+            <td data-label="Category">{{ item.category }}</td>
+            <td data-label="Qty" class="numeric">
               {{- item.quantity }}{% if item.unit %} {{ item.unit }}{% endif -%}
             </td>
-            <td class="numeric">
+            <td data-label="Unit price" class="numeric">
               {{- "$%.2f"|format(item.unit_price) if item.unit_price is not none else "—" -}}
               {%- if item.unit %} / {{ item.unit }}{% endif -%}
             </td>

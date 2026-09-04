@@ -616,21 +616,52 @@ label.inline input {
   .nav a { padding: 0.45rem 0.8rem; font-size: var(--step--1); }
   .nav-long { display: none; }
 
-  /* The check screen is seven columns wide — 924px of table in a 327px
-     window, with the prices you are meant to be checking scrolled off the
-     right-hand side and nothing on screen to say they were there. It is the
-     one screen that has to work on a phone, being what you look at standing
-     in the shop, so each row becomes a card: everything visible at once,
-     every field named, nothing sideways. */
-  .review-table thead { display: none; }
+  /* A table of any width in a 327px window puts its right-hand columns off
+     the screen, with nothing visible to say they are there. On the check
+     screen that hid every price you were being asked to check; on the result
+     screen it hid the unit price of what you had just logged. So a row
+     becomes a card instead: everything at once, every value named, since the
+     heading row that named them is gone. */
+  .card-rows thead { display: none; }
 
-  .review-table,
-  .review-table tbody,
-  .review-table td {
+  .card-rows,
+  .card-rows tbody,
+  .card-rows tr,
+  .card-rows td {
     display: block;
     width: auto;
   }
 
+  /* The row has to stop being a table-row for this padding to apply at all:
+     a table-row box ignores padding, whatever you set on it. */
+  .card-rows tr {
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .card-rows tr:last-child { border-bottom: none; }
+
+  .card-rows td {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 0.15rem 0;
+    border: none;
+    text-align: left;
+  }
+
+  .card-rows td::before {
+    content: attr(data-label);
+    flex: 0 0 5.5rem;
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* The check screen carries form fields rather than text, so its cells pair
+     up two to a line and the fields fill the width they are given. */
   .review-table tr {
     display: grid;
     /* Quantity pairs with its unit, and unit price with the line total —
@@ -641,14 +672,11 @@ label.inline input {
     border-bottom: 1px solid var(--line);
   }
 
-  .review-table tr:last-child { border-bottom: none; }
-
+  /* Fields, not text, so the label sits level with the box rather than on
+     its baseline, and the row's own padding does the spacing. */
   .review-table td {
-    display: flex;
     align-items: center;
-    gap: var(--space-3);
     padding: 0;
-    border: none;
   }
 
   /* Keep, item and category run the width; the four figures pair up. */
@@ -656,15 +684,6 @@ label.inline input {
 
   .review-table td:nth-child(n + 4) {
     display: block;
-  }
-
-  .review-table td::before {
-    content: attr(data-label);
-    font-size: var(--step--1);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink-3);
   }
 
   .review-table td:nth-child(-n + 3)::before { flex: 0 0 5rem; }
