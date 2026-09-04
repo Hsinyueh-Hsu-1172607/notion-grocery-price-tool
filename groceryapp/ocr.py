@@ -197,6 +197,8 @@ _CHAIN_LOGOS = {
     "woolworths": "Woolworths",
     "freshchoice": "FreshChoice",
     "foursquare": "Four Square",
+    "chemist": "Chemist Warehouse",
+    "chemistwarehouse": "Chemist Warehouse",
 }
 
 
@@ -720,7 +722,7 @@ def _find_store_name(rows):
     # Only the first three rows: past that come opening hours and addresses,
     # whose leading words would otherwise out-length the real name.
     for candidate_rows in (rows[:3], rows[-5:]):
-        best, chain = None, None
+        names, chain = [], None
         for row in candidate_rows:
             text, price = _row_parts(row)
             if price is not None:
@@ -731,21 +733,32 @@ def _find_store_name(rows):
             if logo:
                 chain = logo
                 continue
-            if best is None:
-                best = as_name(text)
+            name = as_name(text)
+            if name:
+                names.append(name)
 
-        if best is None:
+        if not names:
             # A logo and nothing else readable above it.
             if chain:
                 return chain
             continue
 
-        # Some branches print "PAK'nSAVE Hornby" in plain text below the logo
-        # and some print only "Moorhouse". The second kind needs the chain put
-        # back, or two branches of one shop file under unrelated names.
-        if chain and _squash(chain) not in _squash(best):
-            return f"{chain} {best}"
-        return best
+        # Once the chain is known, a line that spells it out is the full
+        # store name and beats position. Chemist Warehouse sets its logo over
+        # two lines, and OCR turns the second into noise ("MANE JS") that
+        # would otherwise be taken as the name for being first.
+        if chain:
+            for name in names:
+                if _squash(chain) in _squash(name):
+                    return name
+
+        # Otherwise the first usable line, since that is where a receipt puts
+        # its name. Some branches print only the suburb ("Moorhouse"), which
+        # needs the chain put back, or two branches of one shop file under
+        # unrelated names.
+        if chain:
+            return f"{chain} {names[0]}"
+        return names[0]
     return None
 
 
@@ -784,8 +797,39 @@ def _apply_quantity_below(item, text, store_name=None):
     return True
 
 
+# A count printed in a column down the left, ahead of the item's name:
+#
+#     1 CLIN FLORA RESTORE 30 CAPS*        19.99
+#
+# Chemist Warehouse prints this way, with no "@" anywhere on the line.
+_LEADING_QTY_RE = re.compile(r"^(\d{1,2})\s+(?=[A-Za-z])")
+
+
+def _has_quantity_column(rows):
+    """Is the leading number on these lines a quantity column, or a name?
+
+    Decided across the whole receipt rather than line by line, because one
+    line is not evidence. Plenty of products begin with a digit — "2 Minute
+    Noodles", "5 Star Butter" — and stripping that from a name because it
+    looked like a count would be worse than leaving a stray "1" alone. A
+    column, though, shows up on most of the lines at once.
+    """
+    priced = leading = 0
+    for row in rows:
+        text, price = _row_parts(row)
+        if "total" in re.sub(r"\s+", "", text).lower():
+            break
+        if price is None or _is_skippable(text):
+            continue
+        priced += 1
+        if _LEADING_QTY_RE.match(text):
+            leading += 1
+    return priced >= 2 and leading * 2 >= priced
+
+
 def _parse_items(rows, store_name=None):
     items = []
+    quantity_column = _has_quantity_column(rows)
     pending_name = None  # An item name whose price is on the following row.
 
     for row in rows:
@@ -853,6 +897,16 @@ def _parse_items(rows, store_name=None):
             # The quantity didn't parse — usually a misread "@". Drop the
             # price tail anyway so it doesn't end up inside the item's name.
             name = _PRICE_TAIL_RE.sub("", text).strip(" .-*:=") or text
+
+            # On a receipt that prints counts down the left, that leading
+            # figure is the quantity rather than the first word of the name.
+            leading = _LEADING_QTY_RE.match(name) if quantity_column else None
+            if leading:
+                counted = int(leading.group(1))
+                if counted:
+                    quantity = counted
+                    unit_price = round(price / counted, 2)
+                    name = name[leading.end():].strip(" .-*:=") or name
 
         if not name or len(name) < 2:
             pending_name = None
