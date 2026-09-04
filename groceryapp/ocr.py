@@ -115,6 +115,14 @@ _FUEL_STORE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# What was done to a fruit or vegetable before it reached the shelf. Only
+# consulted against a produce match, so "smoked salmon" is untouched.
+_PREPARED_RE = re.compile(
+    r"\b(powder|powdered|dried|ground|flakes?|paste|seasoning|spice|"
+    r"essence|pickled|crystallised)\b",
+    re.IGNORECASE,
+)
+
 # Chemists and health shops, where an unrecognised item is far more likely to
 # be a supplement or a medicine than to be nothing in particular.
 _HEALTH_STORE_RE = re.compile(
@@ -664,6 +672,11 @@ def _guess_category(item_name, store_name=None):
 
     for category, keywords in _CATEGORY_KEYWORDS.items():
         if any(_keyword_re(kw).search(lowered) for kw in keywords):
+            # Garlic powder is a spice and dried apricots are not fresh fruit.
+            # A word describing how produce was prepared moves it off the
+            # produce shelf and onto the ambient one.
+            if category in ("Fruit", "Vegetables") and _PREPARED_RE.search(lowered):
+                return "Pantry"
             return category
 
     # Nothing matched. At a chemist that is not "unknown", it is "health",

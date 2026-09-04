@@ -1,11 +1,17 @@
-"""One-off: restyle item names that were saved in the receipt's capitals.
+"""One-off: tidy item names already saved in Notion.
+
+Two things, both from rows written before the parser learned better:
 
 Receipts print in block capitals, and rows scanned before the parser started
-softening them read as shouting in a list. This applies the same rule to what
-is already in Notion, so old and new rows look alike.
+softening them read as shouting in a list. Only fully upper-case names are
+touched, and only the letters, so pack sizes, codes and units come through as
+they were.
 
-Only fully upper-case names are touched, and only the letters — pack sizes,
-codes and units come through as they were. Nothing else on the row changes.
+And a name can end in leftover punctuation, most often a currency symbol:
+Google Vision returns the "$" as a word of its own, and until the parser
+accounted for that it stayed on the end of the name as "Regular $".
+
+Nothing else on the row changes.
 
 Nothing is written without --apply; by default the plan is printed for
 checking. Reversing it is a matter of upper-casing the names again.
@@ -13,6 +19,7 @@ checking. Reversing it is a matter of upper-casing the names again.
     python tidy_item_names.py
     python tidy_item_names.py --apply
 """
+import re
 import sys
 
 from dotenv import load_dotenv
@@ -20,6 +27,14 @@ from dotenv import load_dotenv
 from groceryapp import notion_sync, ocr
 
 load_dotenv()
+
+# Rows saved before the parser learned that Google Vision returns the currency
+# symbol as its own word kept it on the end of the name: "Regular $".
+_TRAILING_DEBRIS_RE = re.compile(r"[\s$*.\-:=]+$")
+
+
+def tidy(name):
+    return ocr.tidy_case(_TRAILING_DEBRIS_RE.sub("", name))
 
 
 def main():
@@ -29,7 +44,7 @@ def main():
     planned = []
     for page in rows:
         name = notion_sync._as_row(page)["item_name"]
-        tidied = ocr.tidy_case(name)
+        tidied = tidy(name)
         if tidied != name:
             planned.append((page["id"], name, tidied))
 
