@@ -24,6 +24,7 @@ left is the item. That is much steadier than pattern-matching a flat string,
 because it uses where things actually sit on the paper.
 """
 import base64
+import functools
 import io
 import math
 import os
@@ -33,7 +34,7 @@ from datetime import datetime
 CATEGORIES = [
     "Fruit", "Vegetables", "Meat & Seafood", "Dairy & Eggs", "Bakery",
     "Pantry", "Frozen", "Beverages", "Household", "Personal Care",
-    "Snacks & Confectionery", "Fuel", "Other",
+    "Snacks & Confectionery", "Health", "Fuel", "Other",
 ]
 
 # Best-effort keyword categorisation — there's no real language understanding
@@ -73,12 +74,27 @@ _CATEGORY_KEYWORDS = {
                        "conditioner", "sunscreen"],
     "Snacks & Confectionery": ["chip", "chocolate", "candy", "lolly",
                                 "biscuit", "cracker", "snack"],
+    # Placed after the food categories on purpose. "Probiotic yoghurt" is
+    # yoghurt, and "omega 3 eggs" are eggs, so where a word appears in both a
+    # food name and a supplement, the food wins. The cost is that a fish oil
+    # capsule files under Meat & Seafood, which the check screen catches.
+    #
+    # Brand names carry more than generic words here, because OCR mangles the
+    # product description far worse than it mangles a logo-set brand.
+    "Health": ["vitamin", "multivitamin", "biotin", "magnesium", "zinc",
+               "calcium", "collagen", "probiotic", "glucosamine", "melatonin",
+               "echinacea", "supplement", "immune", "electrolyte",
+               "blackmores", "clinicians", "solgar", "sanderson", "centrum",
+               "elevit", "healtheries", "nutra-life", "thompsons",
+               "panadol", "nurofen", "paracetamol", "ibuprofen", "antihistamine",
+               "lozenge", "throat", "cough", "cold & flu", "antiseptic",
+               "bandage", "band-aid", "plaster", "first aid"],
     # Everything shelf-stable: staples like rice and pasta, and dried fruit,
     # which sits with the ambient goods rather than the fresh fruit.
     "Pantry": ["rice", "pasta", "psta", "spaghetti", "noodle", "macaroni",
                "penne", "fettuccine", "lasagne", "lasagna", "vermicelli",
                "couscous", "quinoa", "risotto", "udon", "ramen", "soba",
-               "sultana", "raisin", "prune", "flour", "sugar", "oil",
+               "sultana", "raisin", "craisin", "prune", "flour", "sugar", "oil",
                "vinegar", "sauce", "stock", "tin", "canned", "honey", "jam",
                "peanut butter", "cereal", "oats", "lentil", "chickpea"],
 }
@@ -96,6 +112,13 @@ _FUEL_KEYWORDS = [
 # store name that happens to contain the letter.
 _FUEL_STORE_RE = re.compile(
     r"\b(npd|z|bp|caltex|mobil|gull|waitomo|challenge|allied)\b",
+    re.IGNORECASE,
+)
+
+# Chemists and health shops, where an unrecognised item is far more likely to
+# be a supplement or a medicine than to be nothing in particular.
+_HEALTH_STORE_RE = re.compile(
+    r"(chemist|pharmacy|unichem|life\s*pharmacy|health\s*2000|healtheries)",
     re.IGNORECASE,
 )
 
@@ -616,6 +639,19 @@ def tidy_case(name):
     return re.sub(r"[A-Za-z]+", fix, name)
 
 
+@functools.lru_cache(maxsize=None)
+def _keyword_re(keyword):
+    """A keyword has to match a whole word, give or take a plural "s".
+
+    Matching bare substrings quietly filed things wrongly and gave no sign of
+    it: "cola" sits inside "chocolate", "fanta" inside "fantastic", and "ham"
+    inside "shampoo", so a chocolate bar was a beverage and shampoo was meat.
+    The optional "s" is what keeps a whole-word rule usable on a receipt,
+    where "carrot" still has to find "CARROTS".
+    """
+    return re.compile(rf"\b{re.escape(keyword)}s?\b")
+
+
 def _guess_category(item_name, store_name=None):
     lowered = item_name.lower()
 
@@ -627,8 +663,22 @@ def _guess_category(item_name, store_name=None):
             return "Fuel"
 
     for category, keywords in _CATEGORY_KEYWORDS.items():
-        if any(kw in lowered for kw in keywords):
+        if any(_keyword_re(kw).search(lowered) for kw in keywords):
             return category
+
+    # Nothing matched. At a chemist that is not "unknown", it is "health",
+    # which is most of what a chemist sells — and on those receipts the
+    # keywords above cannot help, because the print is faint enough that the
+    # product names come back too mangled to match anything: "SOLGAR BIOTIN
+    # 5000MCG" arrived as "Solgar S/Oti 5000Cg". The shop is the one thing
+    # that reads reliably, so it answers when the item name cannot.
+    #
+    # Deliberately last, unlike the fuel rule above: a chemist also sells
+    # chocolate and drinks, and anything the keywords *did* recognise keeps
+    # the category they gave it.
+    if store_name and _HEALTH_STORE_RE.search(store_name):
+        return "Health"
+
     return "Other"
 
 
