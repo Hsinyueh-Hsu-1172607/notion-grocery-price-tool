@@ -34,8 +34,9 @@
     </table>
   </div>
 
-  <p style="margin-top: 1.5rem;">
-    <a class="button" href="{{ notion_url }}" target="_blank" rel="noopener">Review in Notion ↗</a>
-    <a href="{{ url_for('upload') }}" style="margin-left: 1rem;">Scan another receipt</a>
+  <p class="form-actions">
+    <a class="button" href="{{ notion_url }}" target="_blank"
+       rel="noopener">Review in Notion ↗</a>
+    <a class="button secondary" href="{{ url_for('upload') }}">Scan another receipt</a>
   </p>
 {% endblock %}
